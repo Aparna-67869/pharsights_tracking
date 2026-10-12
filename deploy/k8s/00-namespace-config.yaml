@@ -1,0 +1,36 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: pharma-intel
+  labels:
+    app.kubernetes.io/part-of: pharma-intel
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: pharma-intel-config
+  namespace: pharma-intel
+data:
+  ENVIRONMENT: "production"
+  API_PREFIX: "/api/v1"
+  LOG_LEVEL: "INFO"
+  # Non-secret wiring. Secrets (JWT, DB password, Azure OpenAI keys) come from
+  # Azure Key Vault via the CSI driver — see backend-secrets.yaml.
+  STORAGE_BACKEND: "azure_blob"
+  AZURE_STORAGE_CONTAINER: "pharma-artifacts"
+  VECTOR_BACKEND: "pgvector"
+  KAFKA_TOPIC_PREFIX: "pharma"
+  METRICS_ENABLED: "true"
+  OTEL_ENABLED: "true"
+  ALERT_MIN_PRIORITY_TO_NOTIFY: "40"
+---
+# The frontend bakes NEXT_PUBLIC_API_BASE_URL into its client bundle at build
+# time; this value is for server-side rendering calls made from the pod.
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: pharma-intel-frontend-config
+  namespace: pharma-intel
+data:
+  NEXT_PUBLIC_API_BASE_URL: "https://api.pharma-intel.example.com"
+  PORT: "3000"

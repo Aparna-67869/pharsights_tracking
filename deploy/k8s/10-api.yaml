@@ -1,0 +1,165 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: pharma-api
+  namespace: pharma-intel
+  labels:
+    app: pharma-api
+    app.kubernetes.io/part-of: pharma-intel
+spec:
+  replicas: 3
+  revisionHistoryLimit: 5
+  selector:
+    matchLabels:
+      app: pharma-api
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 0
+  template:
+    metadata:
+      labels:
+        app: pharma-api
+      annotations:
+        # Prometheus scrape via the pod annotation; adjust to your operator.
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "8000"
+        prometheus.io/path: "/metrics"
+    spec:
+      serviceAccountName: pharma-intel
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 10001
+        fsGroup: 10001
+        seccompProfile:
+          type: RuntimeDefault
+      # Spread replicas across nodes so a single node failure cannot take the API down.
+      topologySpreadConstraints:
+        - maxSkew: 1
+          topologyKey: kubernetes.io/hostname
+          whenUnsatisfiable: ScheduleAnyway
+          labelSelector:
+            matchLabels:
+              app: pharma-api
+      containers:
+        - name: api
+          image: pharmaintel.azurecr.io/pharma-backend:latest
+          imagePullPolicy: IfNotPresent
+          ports:
+            - name: http
+              containerPort: 8000
+          envFrom:
+            - configMapRef:
+                name: pharma-intel-config
+          env:
+            - name: DATABASE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: pharma-intel-secrets
+                  key: database-url
+            - name: REDIS_URL
+              valueFrom:
+                secretKeyRef:
+                  name: pharma-intel-secrets
+                  key: redis-url
+            - name: KAFKA_BOOTSTRAP_SERVERS
+              valueFrom:
+                secretKeyRef:
+                  name: pharma-intel-secrets
+                  key: kafka-bootstrap-servers
+            - name: JWT_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: pharma-intel-secrets
+                  key: jwt-secret
+            - name: AZURE_STORAGE_CONNECTION_STRING
+              valueFrom:
+                secretKeyRef:
+                  name: pharma-intel-secrets
+                  key: azure-storage-connection-string
+          startupProbe:
+            httpGet: { path: /health, port: http }
+            failureThreshold: 30
+            periodSeconds: 5
+          livenessProbe:
+            httpGet: { path: /health, port: http }
+            initialDelaySeconds: 20
+            periodSeconds: 20
+            timeoutSeconds: 5
+          readinessProbe:
+            httpGet: { path: /health, port: http }
+            initialDelaySeconds: 10
+            periodSeconds: 10
+            timeoutSeconds: 3
+          resources:
+            requests: { cpu: "500m", memory: "1Gi" }
+            limits: { cpu: "2", memory: "4Gi" }
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: ["ALL"]
+          volumeMounts:
+            - name: tmp
+              mountPath: /tmp
+            - name: artifacts
+              mountPath: /app/data/artifacts
+      volumes:
+        - name: tmp
+          emptyDir: {}
+        - name: artifacts
+          emptyDir: {}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: pharma-api
+  namespace: pharma-intel
+  labels:
+    app: pharma-api
+spec:
+  type: ClusterIP
+  selector:
+    app: pharma-api
+  ports:
+    - name: http
+      port: 80
+      targetPort: http
+---
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: pharma-api
+  namespace: pharma-intel
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: pharma-api
+  minReplicas: 3
+  maxReplicas: 12
+  metrics:
+    - type: Resource
+      resource:
+        name: cpu
+        target:
+          type: Utilization
+          averageUtilization: 70
+    - type: Resource
+      resource:
+        name: memory
+        target:
+          type: Utilization
+          averageUtilization: 80
+---
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: pharma-api
+  namespace: pharma-intel
+spec:
+  minAvailable: 2
+  selector:
+    matchLabels:
+      app: pharma-api

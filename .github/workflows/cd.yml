@@ -1,0 +1,92 @@
+name: CD (Azure)
+
+on:
+  push:
+    branches: [main, master]
+    paths:
+      - "backend/**"
+      - "frontend/**"
+      - "deploy/azure/**"
+      - ".github/workflows/cd.yml"
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: Target environment
+        type: choice
+        options: [dev, prod]
+        default: prod
+
+concurrency:
+  group: cd-azure-${{ github.ref }}
+  cancel-in-progress: false
+
+permissions:
+  id-token: write   # required for OIDC federated login to Azure
+  contents: read
+
+env:
+  AZURE_RESOURCE_GROUP: rg-pharma-intel
+  AZURE_LOCATION: eastus
+  ACR_NAME: pharmaintel
+  ACR_LOGIN_SERVER: pharmaintel.azurecr.io
+
+jobs:
+  deploy:
+    name: Build, push, deploy
+    runs-on: ubuntu-latest
+    environment: ${{ github.event.inputs.environment || 'prod' }}
+    steps:
+      - uses: actions/checkout@v4
+
+      # Federated credentials: no long-lived Azure secret is stored in GitHub.
+      - name: Azure login (OIDC)
+        uses: azure/login@v2
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Deploy infrastructure (Bicep)
+        id: infra
+        uses: azure/arm-deploy@v2
+        with:
+          scope: resourceGroup
+          resourceGroupName: ${{ env.AZURE_RESOURCE_GROUP }}
+          template: deploy/azure/main.bicep
+          parameters: >-
+            environment=${{ github.event.inputs.environment || 'prod' }}
+            imageTag=${{ github.sha }}
+            containerRegistryLoginServer=${{ env.ACR_LOGIN_SERVER }}
+            postgresAdminPassword=${{ secrets.PG_ADMIN_PASSWORD }}
+          failOnStdErr: false
+
+      - name: Build and push images
+        run: |
+          az acr login --name "$ACR_NAME"
+          docker build -t "$ACR_LOGIN_SERVER/pharma-backend:${GITHUB_SHA}" backend
+          docker build -t "$ACR_LOGIN_SERVER/pharma-backend:latest" backend
+          docker build \
+            --build-arg NEXT_PUBLIC_API_BASE_URL="https://${{ steps.infra.outputs.apiFqdn }}" \
+            -t "$ACR_LOGIN_SERVER/pharma-frontend:${GITHUB_SHA}" frontend
+          docker push "$ACR_LOGIN_SERVER/pharma-backend:${GITHUB_SHA}"
+          docker push "$ACR_LOGIN_SERVER/pharma-backend:latest"
+          docker push "$ACR_LOGIN_SERVER/pharma-frontend:${GITHUB_SHA}"
+
+      - name: Roll apps onto the new revision
+        uses: azure/arm-deploy@v2
+        with:
+          scope: resourceGroup
+          resourceGroupName: ${{ env.AZURE_RESOURCE_GROUP }}
+          template: deploy/azure/main.bicep
+          parameters: >-
+            environment=${{ github.event.inputs.environment || 'prod' }}
+            imageTag=${{ github.sha }}
+            containerRegistryLoginServer=${{ env.ACR_LOGIN_SERVER }}
+            postgresAdminPassword=${{ secrets.PG_ADMIN_PASSWORD }}
+          failOnStdErr: false
+
+      - name: Smoke test
+        run: |
+          api=$(az containerapp show -n pharma-intel-api -g "$AZURE_RESOURCE_GROUP" \
+            --query properties.configuration.ingress.fqdn -o tsv)
+          curl -fsS --retry 5 --retry-delay 5 "https://$api/health"

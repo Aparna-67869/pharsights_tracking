@@ -1,0 +1,13 @@
+line-length = 110
+target-version = "py312"
+
+[lint]
+select = ["E", "F", "I", "UP", "B", "RUF"]
+ignore = []
+
+[lint.per-file-ignores]
+# conftest.py and the entrypoint scripts must run code before importing app
+# modules (DATABASE_URL must be set first), so late imports are expected.
+"tests/conftest.py" = ["E402"]
+"scripts/*.py" = ["E402"]
+"dags/*.py" = ["E402"]

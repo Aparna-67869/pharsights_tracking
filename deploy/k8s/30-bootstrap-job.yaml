@@ -1,0 +1,120 @@
+# One-shot schema bootstrap / migration job. Run on every release before the
+# API rolls out:
+#   kubectl -n pharma-intel delete job pharma-bootstrap --ignore-not-found
+#   kubectl -n pharma-intel apply -f 30-bootstrap-job.yaml
+#   kubectl -n pharma-intel wait --for=condition=complete job/pharma-bootstrap
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: pharma-bootstrap
+  namespace: pharma-intel
+  labels:
+    app.kubernetes.io/part-of: pharma-intel
+spec:
+  backoffLimit: 3
+  ttlSecondsAfterFinished: 86400
+  template:
+    metadata:
+      labels:
+        app: pharma-bootstrap
+    spec:
+      restartPolicy: Never
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 10001
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: bootstrap
+          image: pharmaintel.azurecr.io/pharma-backend:latest
+          command: ["python", "-m", "scripts.bootstrap"]
+          envFrom:
+            - configMapRef:
+                name: pharma-intel-config
+          env:
+            - name: DATABASE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: pharma-intel-secrets
+                  key: database-url
+            - name: JWT_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: pharma-intel-secrets
+                  key: jwt-secret
+          resources:
+            requests: { cpu: "250m", memory: "512Mi" }
+            limits: { cpu: "1", memory: "2Gi" }
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: ["ALL"]
+          volumeMounts:
+            - name: tmp
+              mountPath: /tmp
+      volumes:
+        - name: tmp
+          emptyDir: {}
+---
+# Manual / on-demand full pipeline run. The scheduled runs are Airflow's job;
+# this exists for operators who need to force a sweep without waiting for cron.
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: pharma-pipeline-fallback
+  namespace: pharma-intel
+  labels:
+    app.kubernetes.io/part-of: pharma-intel
+spec:
+  # Only a safety net: fires if Airflow is unavailable. Skips the 05:00 window
+  # that the daily Airflow DAG owns.
+  schedule: "30 7 * * *"
+  concurrencyPolicy: Forbid
+  successfulJobsHistoryLimit: 3
+  failedJobsHistoryLimit: 3
+  jobTemplate:
+    spec:
+      backoffLimit: 2
+      template:
+        spec:
+          restartPolicy: OnFailure
+          securityContext:
+            runAsNonRoot: true
+            runAsUser: 10001
+          containers:
+            - name: pipeline
+              image: pharmaintel.azurecr.io/pharma-backend:latest
+              command: ["python", "-m", "scripts.run_pipeline"]
+              envFrom:
+                - configMapRef:
+                    name: pharma-intel-config
+              env:
+                - name: DATABASE_URL
+                  valueFrom:
+                    secretKeyRef:
+                      name: pharma-intel-secrets
+                      key: database-url
+                - name: REDIS_URL
+                  valueFrom:
+                    secretKeyRef:
+                      name: pharma-intel-secrets
+                      key: redis-url
+                - name: JWT_SECRET
+                  valueFrom:
+                    secretKeyRef:
+                      name: pharma-intel-secrets
+                      key: jwt-secret
+                - name: AZURE_STORAGE_CONNECTION_STRING
+                  valueFrom:
+                    secretKeyRef:
+                      name: pharma-intel-secrets
+                      key: azure-storage-connection-string
+              resources:
+                requests: { cpu: "500m", memory: "1Gi" }
+                limits: { cpu: "2", memory: "4Gi" }
+              volumeMounts:
+                - name: tmp
+                  mountPath: /tmp
+          volumes:
+            - name: tmp
+              emptyDir: {}

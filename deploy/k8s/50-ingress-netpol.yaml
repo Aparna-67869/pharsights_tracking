@@ -1,0 +1,81 @@
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: pharma-intel
+  namespace: pharma-intel
+  annotations:
+    # Workload identity: lets pods read Key Vault without a stored credential.
+    azure.workload.identity/client-id: "00000000-0000-0000-0000-000000000000"
+  labels:
+    azure.workload.identity/use: "true"
+---
+# Default-deny ingress: only the ingress controller may reach the pods.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: default-deny-ingress
+  namespace: pharma-intel
+spec:
+  podSelector: {}
+  policyTypes: ["Ingress"]
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-frontend-to-api
+  namespace: pharma-intel
+spec:
+  podSelector:
+    matchLabels:
+      app: pharma-api
+  policyTypes: ["Ingress"]
+  ingress:
+    - from:
+        - podSelector:
+            matchLabels:
+              app: pharma-frontend
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: ingress-nginx
+      ports:
+        - protocol: TCP
+          port: 8000
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: pharma-intel
+  namespace: pharma-intel
+  annotations:
+    nginx.ingress.kubernetes.io/proxy-body-size: "32m"
+    nginx.ingress.kubernetes.io/proxy-read-timeout: "300"
+    # WebSocket support for the /ws/events live stream.
+    nginx.ingress.kubernetes.io/proxy-send-timeout: "3600"
+    nginx.ingress.kubernetes.io/websocket-services: "pharma-api"
+    cert-manager.io/cluster-issuer: letsencrypt-prod
+spec:
+  ingressClassName: nginx
+  tls:
+    - hosts: ["pharma-intel.example.com", "api.pharma-intel.example.com"]
+      secretName: pharma-intel-tls
+  rules:
+    - host: pharma-intel.example.com
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: pharma-frontend
+                port:
+                  number: 80
+    - host: api.pharma-intel.example.com
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: pharma-api
+                port:
+                  number: 80
