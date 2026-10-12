@@ -89,7 +89,7 @@ def get_record(record_id: str, session: SessionDep) -> FtfRecordOut:
     return FtfRecordOut.model_validate(row)
 
 
-@router.get("/summary", summary="FTF KPI summary", dependencies=[__import__("fastapi").Depends(require_scope("read:ftf"))])
+@router.get("/summary", summary="FTF KPI summary", dependencies=[__import__("fastapi").Depends(require_scope("read:data"))])
 def summary(session: SessionDep) -> dict:
     return ftf_summary(session)
 
@@ -106,7 +106,6 @@ def therapy_areas(session: SessionDep, limit: int = Query(10, ge=1, le=50)) -> l
 
 @router.get("/export", summary="Export the filtered Paragraph IV list as CSV")
 def export(session: SessionDep, q: str | None = None, status: str | None = None):
-    from fastapi.responses import StreamingResponse
 
     from app.api.export import csv_response
 

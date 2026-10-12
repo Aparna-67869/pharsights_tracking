@@ -12,9 +12,10 @@ from __future__ import annotations
 import json
 import threading
 import uuid
+from collections.abc import Callable
 from dataclasses import asdict, dataclass, field
 from datetime import UTC, datetime
-from typing import Any, Callable, Protocol
+from typing import Any, Protocol
 
 from app.core.config import settings
 from app.core.logging import get_logger
@@ -36,7 +37,7 @@ class DomainEvent:
         return json.dumps(asdict(self), default=str)
 
     @classmethod
-    def from_json(cls, raw: str) -> "DomainEvent":
+    def from_json(cls, raw: str) -> DomainEvent:
         return cls(**json.loads(raw))
 
 

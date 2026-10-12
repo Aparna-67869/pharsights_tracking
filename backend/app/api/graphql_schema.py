@@ -8,7 +8,7 @@ Book records in one round trip), while writes stay on REST.
 from __future__ import annotations
 
 from datetime import date, datetime
-from typing import Any, Optional
+from typing import Any
 
 import strawberry
 from sqlalchemy import desc, func, select
@@ -22,8 +22,6 @@ from app.db.models import (
     Drug,
     FtfRecord,
     Insight,
-    OrangeBookExclusivity,
-    OrangeBookPatent,
     OrangeBookProduct,
     Patent,
     PteApplication,
@@ -46,15 +44,15 @@ def _session() -> Any:
 class FtfType:
     id: str
     drug_name: str
-    rld_brand_name: Optional[str]
-    nda_number: Optional[str]
-    date_of_submission: Optional[date]
-    number_of_andas: Optional[int]
-    exclusivity_status: Optional[str]
-    last_qualifying_patent_expiry: Optional[date]
+    rld_brand_name: str | None
+    nda_number: str | None
+    date_of_submission: date | None
+    number_of_andas: int | None
+    exclusivity_status: str | None
+    last_qualifying_patent_expiry: date | None
 
     @classmethod
-    def from_model(cls, row: FtfRecord) -> "FtfType":
+    def from_model(cls, row: FtfRecord) -> FtfType:
         return cls(
             id=row.id,
             drug_name=row.drug_name,
@@ -71,13 +69,13 @@ class FtfType:
 class PatentType:
     id: str
     patent_number: str
-    expiration_date: Optional[date]
-    assignee: Optional[str]
+    expiration_date: date | None
+    assignee: str | None
     has_pte: bool
     has_paragraph_iv: bool
 
     @classmethod
-    def from_model(cls, row: Patent) -> "PatentType":
+    def from_model(cls, row: Patent) -> PatentType:
         return cls(
             id=row.id,
             patent_number=row.patent_number,
@@ -93,11 +91,11 @@ class PteApplicationType:
     id: str
     application_number: str
     patent_number: str
-    trade_name: Optional[str]
-    filing_date: Optional[date]
+    trade_name: str | None
+    filing_date: date | None
 
     @classmethod
-    def from_model(cls, row: PteApplication) -> "PteApplicationType":
+    def from_model(cls, row: PteApplication) -> PteApplicationType:
         return cls(
             id=row.id,
             application_number=row.application_number,
@@ -111,13 +109,13 @@ class PteApplicationType:
 class PteCertificateType:
     id: str
     patent_number: str
-    trade_name: Optional[str]
-    extension_days: Optional[int]
-    original_expiration_date: Optional[date]
-    extended_expiration_date: Optional[date]
+    trade_name: str | None
+    extension_days: int | None
+    original_expiration_date: date | None
+    extended_expiration_date: date | None
 
     @classmethod
-    def from_model(cls, row: PteCertificate) -> "PteCertificateType":
+    def from_model(cls, row: PteCertificate) -> PteCertificateType:
         return cls(
             id=row.id,
             patent_number=row.patent_number,
@@ -132,11 +130,11 @@ class PteCertificateType:
 class ActiveMoietyType:
     id: str
     moiety_name: str
-    sponsor_name: Optional[str]
-    date_issued: Optional[date]
+    sponsor_name: str | None
+    date_issued: date | None
 
     @classmethod
-    def from_model(cls, row: ActiveMoiety) -> "ActiveMoietyType":
+    def from_model(cls, row: ActiveMoiety) -> ActiveMoietyType:
         return cls(
             id=row.id,
             moiety_name=row.moiety_name,
@@ -149,14 +147,14 @@ class ActiveMoietyType:
 class OrangeBookProductType:
     id: str
     application: str
-    trade_name: Optional[str]
-    ingredient: Optional[str]
-    applicant: Optional[str]
-    te_code: Optional[str]
-    approval_date: Optional[date]
+    trade_name: str | None
+    ingredient: str | None
+    applicant: str | None
+    te_code: str | None
+    approval_date: date | None
 
     @classmethod
-    def from_model(cls, row: OrangeBookProduct) -> "OrangeBookProductType":
+    def from_model(cls, row: OrangeBookProduct) -> OrangeBookProductType:
         return cls(
             id=row.id,
             application=f"{row.appl_type}{row.appl_no}",
@@ -172,13 +170,13 @@ class OrangeBookProductType:
 class DrugType:
     id: str
     name: str
-    ingredient: Optional[str]
-    therapy_area: Optional[str]
+    ingredient: str | None
+    therapy_area: str | None
     brand_names: list[str]
-    sponsor_name: Optional[str]
+    sponsor_name: str | None
 
     @classmethod
-    def from_model(cls, row: Drug, sponsor_name: str | None = None) -> "DrugType":
+    def from_model(cls, row: Drug, sponsor_name: str | None = None) -> DrugType:
         return cls(
             id=row.id,
             name=row.name,
@@ -223,14 +221,14 @@ class AlertType:
     module: str
     event_type: str
     title: str
-    message: Optional[str]
+    message: str | None
     priority_score: int
     priority_label: str
     status: str
     created_at: datetime
 
     @classmethod
-    def from_model(cls, row: Alert) -> "AlertType":
+    def from_model(cls, row: Alert) -> AlertType:
         return cls(
             id=row.id,
             module=row.module,
@@ -249,17 +247,17 @@ class InsightType:
     id: str
     module: str
     title: str
-    what_changed: Optional[str]
-    why_it_matters: Optional[str]
-    generic_opportunity: Optional[str]
-    exclusivity_risk: Optional[str]
-    recommended_action: Optional[str]
+    what_changed: str | None
+    why_it_matters: str | None
+    generic_opportunity: str | None
+    exclusivity_risk: str | None
+    recommended_action: str | None
     priority_score: int
     priority_label: str
     created_at: datetime
 
     @classmethod
-    def from_model(cls, row: Insight) -> "InsightType":
+    def from_model(cls, row: Insight) -> InsightType:
         return cls(
             id=row.id,
             module=row.module,
@@ -287,7 +285,7 @@ class ChangeType:
     field_changes: strawberry.scalars.JSON
 
     @classmethod
-    def from_model(cls, row: DetectedChange) -> "ChangeType":
+    def from_model(cls, row: DetectedChange) -> ChangeType:
         return cls(
             id=row.id,
             module=row.module,
@@ -338,7 +336,7 @@ class Query:
             return KpiType(**executive_kpis(session))
 
     @strawberry.field
-    def drugs(self, limit: int = 25, therapy_area: Optional[str] = None) -> list[DrugType]:
+    def drugs(self, limit: int = 25, therapy_area: str | None = None) -> list[DrugType]:
         with _session() as session:
             stmt = select(Drug)
             if therapy_area:
@@ -350,7 +348,7 @@ class Query:
             ]
 
     @strawberry.field
-    def drug(self, drug_id: str) -> Optional[DrugType]:
+    def drug(self, drug_id: str) -> DrugType | None:
         with _session() as session:
             row = session.get(Drug, drug_id)
             if row is None:
@@ -359,7 +357,7 @@ class Query:
             return DrugType.from_model(row, sponsor.name if sponsor else None)
 
     @strawberry.field
-    def paragraph_iv_filings(self, limit: int = 50, status: Optional[str] = None) -> list[FtfType]:
+    def paragraph_iv_filings(self, limit: int = 50, status: str | None = None) -> list[FtfType]:
         with _session() as session:
             stmt = select(FtfRecord).where(FtfRecord.is_active.is_(True))
             if status:
@@ -390,7 +388,7 @@ class Query:
             return [ActiveMoietyType.from_model(r) for r in rows]
 
     @strawberry.field
-    def alerts(self, limit: int = 50, status: Optional[str] = "open") -> list[AlertType]:
+    def alerts(self, limit: int = 50, status: str | None = "open") -> list[AlertType]:
         with _session() as session:
             stmt = select(Alert)
             if status:
@@ -401,7 +399,7 @@ class Query:
             return [AlertType.from_model(r) for r in rows]
 
     @strawberry.field
-    def insights(self, limit: int = 50, min_score: Optional[int] = None) -> list[InsightType]:
+    def insights(self, limit: int = 50, min_score: int | None = None) -> list[InsightType]:
         with _session() as session:
             stmt = select(Insight)
             if min_score is not None:

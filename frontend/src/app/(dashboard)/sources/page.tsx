@@ -9,11 +9,14 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { KpiCard } from "@/components/common/kpi-card";
+import { useAuth } from "@/components/providers/auth-provider";
 import { fmtDateTime, fmtNumber, fmtRelative, moduleLabel } from "@/lib/format";
 import type { PipelineRun, SourceDefinition } from "@/types/api";
 
 export default function SourcesPage() {
   const queryClient = useQueryClient();
+  const { hasScope } = useAuth();
+  const canRun = hasScope("run:pipeline");
   const sources = useQuery({ queryKey: ["sources"], queryFn: () => api.sources() });
   const runs = useQuery({ queryKey: ["pipeline-runs"], queryFn: () => api.pipelineRuns(25), refetchInterval: 15_000 });
 
@@ -41,10 +44,12 @@ export default function SourcesPage() {
             analyse them.
           </p>
         </div>
-        <Button onClick={() => trigger.mutate()} disabled={trigger.isPending}>
-          {trigger.isPending ? <RefreshCw className="h-4 w-4 animate-spin" /> : <Play className="h-4 w-4" />}
-          Run pipeline now
-        </Button>
+        {canRun ? (
+          <Button onClick={() => trigger.mutate()} disabled={trigger.isPending}>
+            {trigger.isPending ? <RefreshCw className="h-4 w-4 animate-spin" /> : <Play className="h-4 w-4" />}
+            Run pipeline now
+          </Button>
+        ) : null}
       </header>
 
       <section className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">

@@ -130,13 +130,6 @@ class OfflineClient(LLMClient):
 
     def complete(self, messages, *, temperature=0.1, max_tokens=1200) -> LLMResponse:
         system = next((m.content for m in messages if m.role == "system"), "")
-        context = ""
-        question = ""
-        for message in messages:
-            if message.role == "user":
-                question = message.content
-            if message.role == "system" and "CONTEXT" in message.content:
-                context = message.content
 
         # The retrieval layer embeds the context in the system prompt between
         # markers so the offline responder can present it verbatim with citations.

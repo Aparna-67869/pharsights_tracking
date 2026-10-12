@@ -8,23 +8,20 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from datetime import date, datetime
-from typing import Any, Iterable
+from typing import Any
 
 from sqlalchemy import delete, select
 from sqlalchemy.orm import Session
 
-from app.core.logging import get_logger
 from app.copilot.embeddings import get_embedder
+from app.core.logging import get_logger
 from app.db.base import stable_hash
 from app.db.models import (
     ActiveMoiety,
-    Alert,
-    DetectedChange,
     DocumentChunk,
     Drug,
     FtfRecord,
     Insight,
-    OrangeBookExclusivity,
     OrangeBookPatent,
     OrangeBookProduct,
     Patent,
@@ -157,13 +154,21 @@ def index_all(session: Session, *, reset: bool = False) -> IndexStats:
             sponsor = session.get(Sponsor, drug.sponsor_id)
             if sponsor:
                 related["sponsor"] = sponsor.name
-        patents = session.scalars(
-            select(OrangeBookPatent).where(
-                OrangeBookPatent.is_active.is_(True),
-                OrangeBookPatent.patent_id.is_not(None),
+        patents = session.execute(
+            select(OrangeBookPatent.patent_number, OrangeBookPatent.expiration_date)
+            .join(
+                OrangeBookProduct,
+                (OrangeBookProduct.appl_type == OrangeBookPatent.appl_type)
+                & (OrangeBookProduct.appl_no == OrangeBookPatent.appl_no),
             )
-        )
-        patent_numbers = []
+            .where(
+                OrangeBookProduct.drug_id == drug.id,
+                OrangeBookPatent.is_active.is_(True),
+            )
+        ).all()
+        patent_summary = [
+            f"{number} (expires {_fmt(expiration)})" for number, expiration in patents if number
+        ]
         ftf_rows = session.scalars(
             select(FtfRecord).where(FtfRecord.drug_id == drug.id, FtfRecord.is_active.is_(True))
         )
@@ -183,6 +188,7 @@ def index_all(session: Session, *, reset: bool = False) -> IndexStats:
                 "rld_nda": drug.rld_nda,
                 "brand_names": drug.brand_names,
                 "sponsor": related.get("sponsor"),
+                "listed_patents": patent_summary[:10],
                 "paragraph_iv_filings": ftf_summary[:10],
             },
         )

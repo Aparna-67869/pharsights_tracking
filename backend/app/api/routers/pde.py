@@ -5,7 +5,7 @@ from __future__ import annotations
 from datetime import date
 
 from fastapi import APIRouter, Depends, Query
-from sqlalchemy import desc, func, or_, select
+from sqlalchemy import desc, func, select
 
 from app.api.deps import SessionDep, require_scope
 from app.api.export import csv_response

@@ -9,9 +9,10 @@ row is superseded (``is_active=False``) and a new row with the new
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from dataclasses import dataclass, field
 from datetime import datetime
-from typing import Any, Callable, TypeVar
+from typing import Any, TypeVar
 
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session

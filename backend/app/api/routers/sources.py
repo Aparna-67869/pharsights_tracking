@@ -16,7 +16,6 @@ from app.api.schemas import (
 )
 from app.core.errors import NotFoundError
 from app.db.models import CollectionRun, PipelineRun, SourceDefinition, SourceDocument
-from app.db.session import session_scope
 
 router = APIRouter(prefix="/sources", tags=["sources"], dependencies=[Depends(require_scope("read:data"))])
 

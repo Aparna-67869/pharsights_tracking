@@ -15,7 +15,7 @@ Bands: Critical 90-100, High 70-89, Medium 40-69, Low 0-39.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from datetime import date, datetime, timedelta
+from datetime import date, datetime
 from typing import Any
 
 from app.core.text import normalize_name
@@ -205,7 +205,7 @@ def _exclusivity_impact(
         elif days <= 180:
             raw, reason = 1.0, f"patent expires in {days} days"
         elif days <= 365:
-            raw, reason = 0.9, f"patent expires within 12 months"
+            raw, reason = 0.9, "patent expires within 12 months"
         elif days <= 730:
             raw, reason = 0.75, "patent expires within 24 months"
         elif days <= 1825:

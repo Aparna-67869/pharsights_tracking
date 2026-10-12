@@ -41,9 +41,9 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const openAlerts = alertSummary?.open ?? 0;
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="aurora min-h-screen bg-background">
       <Sidebar open={navOpen} onClose={() => setNavOpen(false)} alertCount={openAlerts} />
-      <div className="lg:pl-64">
+      <div className="relative z-10 lg:pl-64">
         <Topbar onMenu={() => setNavOpen(true)}>
           <button
             onClick={() => setPaletteOpen(true)}

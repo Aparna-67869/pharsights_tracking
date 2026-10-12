@@ -68,3 +68,35 @@ def test_viewer_role_cannot_trigger_pipeline(client):
         "/api/v1/pipeline/run", headers={"Authorization": f"Bearer {token}"}, json={}
     )
     assert response.status_code in {401, 403}
+
+
+def test_viewer_role_can_read_every_module(client):
+    """A read-only viewer must reach the module endpoints, not get 'insufficient
+    permissions' on them. Regression: the viewer role held only ``read:public``
+    while every module required ``read:data``, so every module page 403'd."""
+    token = _token(client, "viewer@pharma-intel.local", "ViewerPass!234")
+    headers = {"Authorization": f"Bearer {token}"}
+    for path in (
+        "/api/v1/ftf/records",
+        "/api/v1/ftf/summary",
+        "/api/v1/pte/applications",
+        "/api/v1/pte/certificates",
+        "/api/v1/pde/moieties",
+        "/api/v1/orange-book/products",
+        "/api/v1/dashboard/kpis",
+        "/api/v1/changes",
+        "/api/v1/alerts",
+    ):
+        response = client.get(path, headers=headers)
+        assert response.status_code == 200, f"{path} -> {response.status_code}: {response.text}"
+
+
+def test_viewer_role_cannot_use_copilot(client):
+    """The copilot is an entitlement, not a read — viewers must not reach it."""
+    token = _token(client, "viewer@pharma-intel.local", "ViewerPass!234")
+    response = client.post(
+        "/api/v1/copilot/ask",
+        headers={"Authorization": f"Bearer {token}"},
+        json={"question": "hello"},
+    )
+    assert response.status_code in {401, 403}

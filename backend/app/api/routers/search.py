@@ -72,7 +72,6 @@ def drug_360(drug_id: str, session: SessionDep) -> dict:
         )
     )
 
-    product_ids = [p.id for p in ftf]
     patents = list(
         session.scalars(
             select(Patent).where(

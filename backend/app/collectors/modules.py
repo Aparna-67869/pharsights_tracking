@@ -15,10 +15,6 @@ from sqlalchemy.orm import Session
 from app.collectors.base import BaseCollector, CollectedDocument
 from app.collectors.registry import (
     ALL_SOURCES,
-    FTF_SOURCES,
-    ORANGE_BOOK_SOURCES,
-    PDE_SOURCES,
-    PTE_SOURCES,
     SOURCES_BY_CODE,
     SourceSpec,
 )
@@ -51,7 +47,6 @@ class FtfCollector(ModuleCollector):
     def parse(self, data: bytes, *, filename: str = "") -> ParseResult:
         if self.source.document_kind == "pdf":
             records = ftf_parser.parse_ftf_pdf(data)
-            text = data[:0]  # PDF text already consumed by the parser
         else:
             records = ftf_parser.parse_ftf_excel(data, filename=filename)
         return ParseResult(records=records, metadata={"certification_type": "Paragraph IV"})
@@ -127,7 +122,7 @@ def collect_source(session: Session, source_code: str) -> tuple[CollectedDocumen
         collected.document.parse_status = "ok"
         session.flush()
         return collected, parsed
-    except Exception as exc:
+    except Exception:
         log.exception("collect/parse failed for %s", source_code)
         if session.dirty:
             session.rollback()

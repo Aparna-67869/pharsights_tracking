@@ -4,8 +4,9 @@ from __future__ import annotations
 
 import csv
 import io
+from collections.abc import Iterable
 from datetime import date, datetime
-from typing import Any, Iterable
+from typing import Any
 
 from fastapi.responses import StreamingResponse
 

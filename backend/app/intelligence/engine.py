@@ -66,7 +66,6 @@ FIELD_LABELS = {
     "moiety_name": "Active moiety",
     "sponsor_name": "Sponsor",
     "date_issued": "Date issued",
-    "trade_name": "Trade name",
     "ingredient": "Ingredient",
     "applicant": "Applicant",
     "approval_date": "Approval date",
@@ -360,7 +359,7 @@ def _exclusivity_risk(context: ImpactContext) -> str | None:
         if context.pte_certificate is not None:
             days = context.pte_certificate.extension_days
         return (
-            f"Elevated — a PTE certificate extends exclusivity"
+            "Elevated — a PTE certificate extends exclusivity"
             + (f" by approximately {days} days" if days else "")
             + ", pushing the earliest generic entry date out."
         )

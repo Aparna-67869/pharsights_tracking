@@ -86,7 +86,7 @@ class HttpClient:
             http2=False,
         )
 
-    def __enter__(self) -> "HttpClient":
+    def __enter__(self) -> HttpClient:
         return self
 
     def __exit__(self, *exc: Any) -> None:

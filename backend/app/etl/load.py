@@ -18,9 +18,9 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.collectors.base import CollectedDocument
-from app.core.text import normalize_name
 from app.core.events import Topics, publish_event
 from app.core.logging import get_logger
+from app.core.text import normalize_name
 from app.db.base import utcnow
 from app.db.models import (
     ActiveMoiety,

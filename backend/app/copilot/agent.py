@@ -20,15 +20,15 @@ from __future__ import annotations
 
 import re
 import time
+from collections.abc import Callable
 from dataclasses import dataclass, field
 from datetime import date, timedelta
-from typing import Any, Callable
+from typing import Any
 
 from sqlalchemy import desc, func, select
 from sqlalchemy.orm import Session
 
 from app.alerts.engine import alert_summary
-from app.copilot.embeddings import get_embedder
 from app.copilot.llm import ChatMessage, get_llm
 from app.copilot.rag import build_context_block, retrieve
 from app.core.logging import get_logger
@@ -37,12 +37,11 @@ from app.db.models import (
     Drug,
     FtfRecord,
     Insight,
+    OrangeBookPatent,
     OrangeBookProduct,
     OrangeBookSupplement,
-    Patent,
     PteApplication,
     PteCertificate,
-    Sponsor,
 )
 from app.intelligence.analytics import (
     executive_kpis,

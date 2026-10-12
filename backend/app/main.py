@@ -22,15 +22,35 @@ from starlette.middleware.base import BaseHTTPMiddleware
 from app.api import ws
 from app.api.routers import (
     alerts as alerts_router,
+)
+from app.api.routers import (
     auth as auth_router,
+)
+from app.api.routers import (
     copilot as copilot_router,
+)
+from app.api.routers import (
     dashboard as dashboard_router,
+)
+from app.api.routers import (
     ftf as ftf_router,
+)
+from app.api.routers import (
     intelligence as intelligence_router,
+)
+from app.api.routers import (
     orange_book as ob_router,
+)
+from app.api.routers import (
     pde as pde_router,
+)
+from app.api.routers import (
     pte as pte_router,
+)
+from app.api.routers import (
     search as search_router,
+)
+from app.api.routers import (
     sources as sources_router,
 )
 from app.core.config import settings

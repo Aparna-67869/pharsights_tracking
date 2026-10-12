@@ -15,7 +15,7 @@ from typing import Any
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app.collectors.http import HttpClient, FetchResult, parse_html
+from app.collectors.http import HttpClient, parse_html
 from app.collectors.registry import SourceSpec
 from app.collectors.storage import artifact_key, content_hash, get_store
 from app.core.errors import CollectorError
@@ -23,7 +23,7 @@ from app.core.events import Topics, publish_event
 from app.core.logging import get_logger
 from app.core.text import parse_date_flexible
 from app.db.base import utcnow
-from app.db.models import CollectionRun, SourceDocument, SourceDefinition
+from app.db.models import CollectionRun, SourceDefinition, SourceDocument
 
 log = get_logger(__name__)
 
@@ -62,7 +62,7 @@ class BaseCollector:
             self._client.close()
             self._client = None
 
-    def __enter__(self) -> "BaseCollector":
+    def __enter__(self) -> BaseCollector:
         return self
 
     def __exit__(self, *exc: Any) -> None:

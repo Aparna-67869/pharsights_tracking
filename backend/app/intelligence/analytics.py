@@ -8,7 +8,7 @@ from __future__ import annotations
 from datetime import date, timedelta
 from typing import Any
 
-from sqlalchemy import Float, and_, cast, desc, extract, func, or_, select
+from sqlalchemy import and_, desc, extract, func, select
 from sqlalchemy.orm import Session
 
 from app.core.logging import get_logger
@@ -26,7 +26,6 @@ from app.db.models import (
     Patent,
     PteApplication,
     PteCertificate,
-    Sponsor,
 )
 
 log = get_logger(__name__)

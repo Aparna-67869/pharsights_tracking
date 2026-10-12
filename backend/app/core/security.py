@@ -54,7 +54,7 @@ ROLE_SCOPES: dict[Role, set[str]] = {
         "write:patent_notes",
     },
     Role.EXECUTIVE: {"read:*", "use:copilot", "export:data"},
-    Role.VIEWER: {"read:public"},
+    Role.VIEWER: {"read:data"},
 }
 
 

@@ -63,7 +63,7 @@ class SourceDefinition(Base, UUIDPrimaryKey, TimestampMixin):
     last_success_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     last_error: Mapped[str | None] = mapped_column(Text, nullable=True)
 
-    documents: Mapped[list["SourceDocument"]] = relationship(back_populates="source_def")
+    documents: Mapped[list[SourceDocument]] = relationship(back_populates="source_def")
 
 
 class SourceDocument(Base, UUIDPrimaryKey, TimestampMixin):
@@ -95,7 +95,7 @@ class SourceDocument(Base, UUIDPrimaryKey, TimestampMixin):
     extra: Mapped[dict[str, Any]] = mapped_column(JSON, default=dict)
 
     source_def: Mapped[SourceDefinition] = relationship(back_populates="documents")
-    changes: Mapped[list["DetectedChange"]] = relationship(back_populates="document")
+    changes: Mapped[list[DetectedChange]] = relationship(back_populates="document")
 
     __table_args__ = (
         Index("ix_source_documents_current", "source_code", "is_current"),
@@ -600,7 +600,7 @@ class Alert(Base, UUIDPrimaryKey, TimestampMixin):
     resolved_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
     metadata_json: Mapped[dict[str, Any]] = mapped_column("metadata", JSON, default=dict)
 
-    notifications: Mapped[list["NotificationLog"]] = relationship(back_populates="alert")
+    notifications: Mapped[list[NotificationLog]] = relationship(back_populates="alert")
 
     __table_args__ = (
         Index("ix_alerts_status_priority", "status", "priority_score"),
@@ -683,7 +683,7 @@ class CopilotConversation(Base, UUIDPrimaryKey, TimestampMixin):
     title: Mapped[str] = mapped_column(String(512), default="New conversation")
     context: Mapped[dict[str, Any]] = mapped_column(JSON, default=dict)
 
-    messages: Mapped[list["CopilotMessage"]] = relationship(back_populates="conversation")
+    messages: Mapped[list[CopilotMessage]] = relationship(back_populates="conversation")
 
 
 class CopilotMessage(Base, UUIDPrimaryKey, TimestampMixin):

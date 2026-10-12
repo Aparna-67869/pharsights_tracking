@@ -7,13 +7,13 @@ from collections.abc import Generator
 from dataclasses import dataclass
 from typing import Annotated, Any
 
-from fastapi import Depends, Header, Request
+from fastapi import Depends, Request
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from sqlalchemy.orm import Session
 
 from app.core.config import settings
-from app.core.errors import AuthenticationError, AuthorizationError, RateLimitError
-from app.core.security import Role, assert_scope, decode_token, verify_password
+from app.core.errors import AuthenticationError, RateLimitError
+from app.core.security import Role, assert_scope, decode_token
 from app.db.models import AuditLog, User
 from app.db.session import get_session as _get_session
 

@@ -13,9 +13,8 @@ from typing import Any
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app.core.config import settings
-from app.core.logging import get_logger
 from app.copilot.embeddings import cosine_similarity, get_embedder
+from app.core.logging import get_logger
 from app.db.models import DocumentChunk
 
 log = get_logger(__name__)

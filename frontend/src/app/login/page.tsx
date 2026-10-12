@@ -16,10 +16,11 @@ const DEMO_ACCOUNTS = [
 export default function LoginPage() {
   const { login, user, loading } = useAuth();
   const router = useRouter();
-  const [username, setUsername] = React.useState("analyst@pharma-intel.local");
-  const [password, setPassword] = React.useState("AnalystPass!234");
+  const [username, setUsername] = React.useState("");
+  const [password, setPassword] = React.useState("");
   const [submitting, setSubmitting] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
+  const [showDemo, setShowDemo] = React.useState(false);
 
   React.useEffect(() => {
     if (!loading && user) router.replace("/");
@@ -135,24 +136,36 @@ export default function LoginPage() {
             </form>
 
             <div className="mt-6 border-t border-border/70 pt-4">
-              <p className="mb-2 text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
-                Demo accounts
-              </p>
-              <div className="flex flex-wrap gap-1.5">
-                {DEMO_ACCOUNTS.map((account) => (
-                  <button
-                    key={account.email}
-                    type="button"
-                    onClick={() => {
-                      setUsername(account.email);
-                      setPassword(account.password);
-                    }}
-                    className="rounded-md border border-border/70 px-2 py-1 text-[11px] text-muted-foreground transition-colors hover:bg-muted/60 hover:text-foreground"
-                  >
-                    {account.label}
-                  </button>
-                ))}
-              </div>
+              <button
+                type="button"
+                onClick={() => setShowDemo((v) => !v)}
+                className="text-[11px] font-medium text-muted-foreground underline-offset-2 hover:text-foreground hover:underline"
+              >
+                {showDemo ? "Hide demo accounts" : "Looking for a demo account?"}
+              </button>
+              {showDemo ? (
+                <div className="mt-3 rounded-lg border border-border/70 bg-muted/30 p-3">
+                  <p className="mb-2 text-[11px] leading-relaxed text-muted-foreground">
+                    For evaluation only. These accounts exist only when the platform is seeded with
+                    development data, and are not present in a production deployment.
+                  </p>
+                  <div className="flex flex-wrap gap-1.5">
+                    {DEMO_ACCOUNTS.map((account) => (
+                      <button
+                        key={account.email}
+                        type="button"
+                        onClick={() => {
+                          setUsername(account.email);
+                          setPassword(account.password);
+                        }}
+                        className="rounded-md border border-border/70 px-2 py-1 text-[11px] text-muted-foreground transition-colors hover:bg-muted/60 hover:text-foreground"
+                      >
+                        {account.label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              ) : null}
             </div>
           </div>
         </div>

@@ -7,15 +7,16 @@ idempotent: running it twice against unchanged sources produces zero new changes
 from __future__ import annotations
 
 import time
+from collections.abc import Callable
 from dataclasses import dataclass, field
-from typing import Any, Callable
+from typing import Any
 
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from app.collectors.base import ensure_source_definition
 from app.collectors.modules import build_collector
-from app.collectors.registry import ALL_SOURCES, SOURCES_BY_MODULE
+from app.collectors.registry import ALL_SOURCES
 from app.core.events import Topics, publish_event
 from app.core.logging import get_logger
 from app.db.base import utcnow

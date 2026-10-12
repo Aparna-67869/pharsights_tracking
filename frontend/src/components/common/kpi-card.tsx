@@ -31,15 +31,30 @@ export function KpiCard({
     destructive: "text-destructive bg-destructive/12 ring-destructive/25 dark:text-red-300",
   };
 
+  const toneRail: Record<string, string> = {
+    default: "hsl(var(--muted-foreground))",
+    primary: "hsl(var(--primary))",
+    success: "hsl(var(--success))",
+    warning: "hsl(var(--warning))",
+    destructive: "hsl(var(--destructive))",
+  };
+
   return (
     <Card
       className={cn(
-        "group relative overflow-hidden p-4 transition-all",
-        onClick && "cursor-pointer hover:ring-1 hover:ring-primary/30",
+        "rail group relative overflow-hidden p-4 transition-all duration-200",
+        onClick && "cursor-pointer hover:-translate-y-0.5 hover:shadow-glass hover:ring-1 hover:ring-primary/30",
       )}
+      style={{ ["--rail-color" as string]: toneRail[tone] }}
       onClick={onClick}
     >
-      <div className="flex items-start justify-between gap-3">
+      <div
+        className="pointer-events-none absolute inset-0 opacity-0 transition-opacity duration-200 group-hover:opacity-100"
+        style={{
+          background: `radial-gradient(14rem 8rem at 100% 0%, ${toneRail[tone]}1f, transparent 70%)`,
+        }}
+      />
+      <div className="relative flex items-start justify-between gap-3">
         <p className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
           {label}
         </p>
@@ -49,8 +64,8 @@ export function KpiCard({
           </span>
         ) : null}
       </div>
-      <div className="mt-2 flex items-end gap-2">
-        <span className="text-2xl font-semibold tabular-nums">
+      <div className="relative mt-2 flex items-end gap-2">
+        <span className="stat-number">
           {typeof value === "number" ? fmtCompact(value) : value}
         </span>
         {typeof trend === "number" ? (

@@ -2,13 +2,13 @@
 
 from __future__ import annotations
 
-from fastapi import APIRouter, Query, Request
+from fastapi import APIRouter, Request
 from sqlalchemy import desc, select
 
 from app.api.deps import PrincipalDep, SessionDep, audit, require_scope
 from app.api.schemas import CopilotAnswerOut, CopilotAskRequest
-from app.core.errors import NotFoundError
 from app.copilot.agent import SUGGESTED_QUESTIONS, ask
+from app.core.errors import NotFoundError
 from app.db.models import CopilotConversation, CopilotMessage
 
 router = APIRouter(prefix="/copilot", tags=["copilot"])

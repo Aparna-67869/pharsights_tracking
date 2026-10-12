@@ -30,32 +30,40 @@
     --radius: 0.75rem;
     --font-sans: "Inter", system-ui, sans-serif;
     --font-mono: "JetBrains Mono", ui-monospace, monospace;
+    --sidebar: 222 47% 11%;
+    --sidebar-foreground: 210 40% 96%;
+    --elevate: 220 43% 99%;
+    --glow: 221 83% 53%;
   }
 
   .dark {
-    --background: 222 47% 7%;
+    --background: 222 47% 6%;
     --foreground: 210 40% 96%;
-    --surface: 222 40% 11%;
-    --surface-muted: 222 33% 15%;
-    --card: 222 40% 11%;
+    --surface: 222 40% 10%;
+    --surface-muted: 222 33% 14%;
+    --card: 222 40% 10%;
     --card-foreground: 210 40% 96%;
-    --primary: 217 91% 60%;
+    --primary: 217 91% 62%;
     --primary-foreground: 222 47% 8%;
-    --secondary: 217 33% 18%;
+    --secondary: 217 33% 17%;
     --secondary-foreground: 210 40% 96%;
-    --muted: 217 33% 18%;
-    --muted-foreground: 215 20% 65%;
-    --accent: 199 89% 55%;
+    --muted: 217 33% 17%;
+    --muted-foreground: 215 20% 68%;
+    --accent: 190 95% 55%;
     --accent-foreground: 222 47% 8%;
-    --destructive: 0 63% 55%;
+    --destructive: 0 72% 58%;
     --destructive-foreground: 210 40% 98%;
-    --success: 142 69% 50%;
+    --success: 152 70% 48%;
     --success-foreground: 222 47% 8%;
-    --warning: 38 92% 55%;
+    --warning: 38 96% 56%;
     --warning-foreground: 26 83% 10%;
-    --border: 217 33% 20%;
-    --input: 217 33% 22%;
-    --ring: 217 91% 60%;
+    --border: 217 33% 19%;
+    --input: 217 33% 21%;
+    --ring: 217 91% 62%;
+    --sidebar: 222 47% 9%;
+    --sidebar-foreground: 210 40% 96%;
+    --elevate: 222 40% 12%;
+    --glow: 217 91% 62%;
   }
 }
 
@@ -84,6 +92,40 @@
   .grid-backdrop {
     background-image: radial-gradient(circle at 1px 1px, hsl(var(--border)) 1px, transparent 0);
     background-size: 24px 24px;
+  }
+  /* Aurora wash behind the app; keeps large dark surfaces from reading as flat. */
+  .aurora::before {
+    content: "";
+    position: fixed;
+    inset: 0;
+    pointer-events: none;
+    z-index: 0;
+    background:
+      radial-gradient(60rem 30rem at 12% -8%, hsl(var(--primary) / 0.18), transparent 60%),
+      radial-gradient(50rem 26rem at 88% 4%, hsl(var(--accent) / 0.14), transparent 62%);
+  }
+  /* A thin accent rail on the leading edge of a card, tinted by tone. */
+  .rail {
+    position: relative;
+  }
+  .rail::after {
+    content: "";
+    position: absolute;
+    left: 0;
+    top: 0.75rem;
+    bottom: 0.75rem;
+    width: 3px;
+    border-radius: 9999px;
+    background: hsl(var(--rail-color, var(--primary)));
+  }
+  .stat-number {
+    @apply text-2xl font-semibold tabular-nums tracking-tight;
+  }
+  .surface-grid {
+    background-image:
+      linear-gradient(to right, hsl(var(--border) / 0.35) 1px, transparent 1px),
+      linear-gradient(to bottom, hsl(var(--border) / 0.35) 1px, transparent 1px);
+    background-size: 44px 44px;
   }
   .data-table {
     @apply w-full border-separate border-spacing-0 text-sm;
