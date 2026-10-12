@@ -135,6 +135,15 @@ export const api = {
   },
   me: () => request<{ username: string; role: string; permissions: string[] }>("/auth/me"),
 
+  async register(payload: { full_name: string; email: string; password: string }): Promise<{
+    id: string;
+    email: string;
+    full_name: string;
+    role: string;
+  }> {
+    return request("/auth/register", { method: "POST", body: JSON.stringify(payload) });
+  },
+
   // ---- Dashboard ----
   kpis: async (): Promise<{ kpis: Kpis; alerts: AlertSummary }> => {
     const raw = await request<{ kpis: Kpis; alerts: AlertSummary & { open_total?: number; by_priority?: Record<string, number> } }>(
@@ -160,6 +169,17 @@ export const api = {
   ftfRecords: (params?: Record<string, unknown>) =>
     request<Page<FtfRecord>>(`/ftf/records${qs(params)}`),
   ftfSummary: () => request<FtfSummary>("/ftf/summary"),
+  ftfSource: () =>
+    request<{
+      source_code?: string;
+      filename?: string | null;
+      version?: number;
+      record_count?: number;
+      publication_date: string | null;
+      publication_label: string | null;
+      fetched_at?: string | null;
+      url?: string;
+    }>("/ftf/source"),
   ftfMonthlyTrend: (months = 36) =>
     request<Array<{ month: string; count: number }>>(`/ftf/analytics/monthly-trend${qs({ months })}`),
   ftfTherapyAreas: (limit = 10) =>

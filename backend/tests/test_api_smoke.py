@@ -100,3 +100,48 @@ def test_viewer_role_cannot_use_copilot(client):
         json={"question": "hello"},
     )
     assert response.status_code in {401, 403}
+
+
+def test_signup_creates_least_privilege_account(client):
+    """Self-registration must create a working, read-only (viewer) account."""
+    email = "newcomer@pharma-intel.local"
+    response = client.post(
+        "/api/v1/auth/register",
+        json={"full_name": "New Comer", "email": email, "password": "NewComerPass!234"},
+    )
+    assert response.status_code == 201, response.text
+    assert response.json()["role"] == "viewer"
+
+    # The new account can immediately log in and read a module.
+    token = _token(client, email, "NewComerPass!234")
+    ok = client.get("/api/v1/ftf/records", headers={"Authorization": f"Bearer {token}"})
+    assert ok.status_code == 200, ok.text
+
+    # ...but stays out of the privileged copilot/entitlement surface.
+    gated = client.post(
+        "/api/v1/copilot/ask",
+        headers={"Authorization": f"Bearer {token}"},
+        json={"question": "hello"},
+    )
+    assert gated.status_code in {401, 403}
+
+
+def test_signup_rejects_duplicate_email(client):
+    """Registering an email that already exists must conflict, not silently succeed."""
+    response = client.post(
+        "/api/v1/auth/register",
+        json={
+            "full_name": "Tester Again",
+            "email": "tester@pharma-intel.local",
+            "password": "TestPass!234",
+        },
+    )
+    assert response.status_code == 409
+
+
+def test_signup_rejects_short_password(client):
+    response = client.post(
+        "/api/v1/auth/register",
+        json={"full_name": "Shorty", "email": "shorty@pharma-intel.local", "password": "abc"},
+    )
+    assert response.status_code == 422

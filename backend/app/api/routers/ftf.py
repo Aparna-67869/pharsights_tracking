@@ -64,17 +64,23 @@ def list_records(
     submitted_from: date | None = None,
     submitted_to: date | None = None,
     expiring_before: date | None = None,
+    sort: str = Query(
+        "drug",
+        description="drug = source order (alphabetical by drug name) | submitted = newest filing first",
+    ),
     page: int = 1,
     page_size: int = Query(50, le=500),
 ) -> Page[FtfRecordOut]:
     stmt = _filtered(q, applicant, nda, patent, status, submitted_from, submitted_to, expiring_before)
     total = session.scalar(select(func.count()).select_from(stmt.subquery())) or 0
+    if sort == "submitted":
+        order = (desc(FtfRecord.date_of_submission), func.lower(FtfRecord.drug_name))
+    else:
+        # The FDA publishes the list alphabetically by drug name; default to the
+        # source's own order so the table reads the way the SOP describes it.
+        order = (func.lower(FtfRecord.drug_name), func.lower(func.coalesce(FtfRecord.rld_nda, "")))
     rows = list(
-        session.scalars(
-            stmt.order_by(desc(FtfRecord.date_of_submission))
-            .limit(page_size)
-            .offset((page - 1) * page_size)
-        )
+        session.scalars(stmt.order_by(*order).limit(page_size).offset((page - 1) * page_size))
     )
     return Page.build([FtfRecordOut.model_validate(r) for r in rows], total, page, page_size)
 
@@ -94,6 +100,38 @@ def summary(session: SessionDep) -> dict:
     return ftf_summary(session)
 
 
+@router.get("/source", summary="Current FDA Paragraph IV document (publication date, version)")
+def source_info(session: SessionDep) -> dict:
+    """Metadata for the FDA Paragraph IV list currently loaded.
+
+    The SOP requires the publication date printed at the top of the PDF; we
+    surface the date parsed out of the document itself, plus the version and
+    record count, so the dashboard can show the same header the source shows.
+    """
+    from app.db.models import SourceDocument
+
+    doc = session.scalars(
+        select(SourceDocument)
+        .where(
+            SourceDocument.source_code == "fda_ftf_ppiv_excel",
+            SourceDocument.is_current.is_(True),
+        )
+        .order_by(desc(SourceDocument.fetched_at))
+    ).first()
+    if doc is None:
+        return {"publication_date": None, "publication_label": None}
+    return {
+        "source_code": doc.source_code,
+        "filename": doc.filename,
+        "version": doc.version,
+        "record_count": doc.record_count,
+        "publication_date": doc.publication_date.isoformat() if doc.publication_date else None,
+        "publication_label": doc.publication_label,
+        "fetched_at": doc.fetched_at.isoformat() if doc.fetched_at else None,
+        "url": doc.url,
+    }
+
+
 @router.get("/analytics/monthly-trend", summary="Monthly Paragraph IV filing trend")
 def monthly_trend(session: SessionDep, months: int = Query(36, ge=1, le=240)) -> list[dict]:
     return ftf_monthly_trend(session, months=months)
@@ -110,7 +148,7 @@ def export(session: SessionDep, q: str | None = None, status: str | None = None)
     from app.api.export import csv_response
 
     stmt = _filtered(q, None, None, None, status, None, None, None).order_by(
-        desc(FtfRecord.date_of_submission)
+        func.lower(FtfRecord.drug_name)
     )
     rows = list(session.scalars(stmt))
     columns = [

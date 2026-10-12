@@ -43,6 +43,34 @@ Tests: `cd backend && python3 -m pytest -q` (22 pass). Frontend typecheck: `npm 
   `FtfRecordOut` (unpopulated from this source); the UI table matches the source columns.
 - No LLM keys configured → copilot runs in deterministic offline mode (disclosed in the UI).
 
+## SOP conformance (source of truth: the SOP PDF at repo root)
+
+The SOP mandates that each module mirrors what the analyst sees on the source page:
+
+- **FTF** — open the "Paragraph IV Certifications List" PDF; its drugs are listed
+  **alphabetically**, and the publication date is printed at the top. So
+  `GET /ftf/records` defaults to `sort=drug` (A–Z by `lower(drug_name)`), and
+  `GET /ftf/source` returns the parsed `publication_date` / `publication_label`
+  (e.g. "September 28, 2026") for the header banner. `sort=submitted` opts into
+  newest-first. The CSV export follows the same A–Z order.
+- **PTE** — monitor both lists daily (applications filed in the last 5 years, and
+  issued certificates).
+- **PDE** — the "Approved Active Moiety" Excel, latest update date in brackets.
+- **Orange Book** — the Current Cumulative Supplement PDF, published monthly
+  (typically the second week); supplement number + month/year at the top.
+
+## Authentication
+
+- Seeded passwords (development only, see `scripts/seed.py`):
+  `admin/admin@pharma-intel.local AdminPass!234`, `analyst@… AnalystPass!234`,
+  `ra@… RAPass!234`, `ip@… IPPass!234`, `exec@… ExecPass!234`,
+  `viewer@… ViewerPass!234`.
+- Self-registration: `POST /auth/register` (frontend "Create an account" on the
+  login page). It always grants the least-privilege `viewer` role. Controlled by
+  `settings.allow_self_registration` (env `ALLOW_SELF_REGISTRATION`, default true;
+  set false in production). Email validation is deliberately pragmatic so the
+  internal `@pharma-intel.local` domain (which strict validators reject) works.
+
 ## Gotchas
 
 - `backend/app/copilot/agent.py` uses `OrangeBookPatent` — it must stay imported from

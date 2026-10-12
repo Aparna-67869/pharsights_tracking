@@ -5,7 +5,7 @@ from __future__ import annotations
 from datetime import date, datetime
 from typing import Any, Generic, TypeVar
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 T = TypeVar("T")
 
@@ -41,6 +41,33 @@ class TokenResponse(BaseModel):
     expires_in: int
     role: str
     username: str
+
+
+class RegisterRequest(BaseModel):
+    full_name: str = Field(min_length=2, max_length=255)
+    email: str = Field(min_length=3, max_length=320)
+    password: str = Field(min_length=8, max_length=128)
+
+    @field_validator("email")
+    @classmethod
+    def _valid_email(cls, value: str) -> str:
+        email = value.strip().casefold()
+        local, at, domain = email.partition("@")
+        # Prefer a pragmatic check over strict RFC parsing: internal
+        # deployments legitimately use single-label domains such as
+        # ``@pharma-intel.local`` that a strict validator rejects outright.
+        if not at or not local or "." not in domain or domain.startswith(".") or domain.endswith("."):
+            raise ValueError("Enter a valid email address")
+        if any(ch.isspace() for ch in email):
+            raise ValueError("Enter a valid email address")
+        return email
+
+
+class RegisterResponse(BaseModel):
+    id: str
+    email: str
+    full_name: str
+    role: str
 
 
 class UserProfile(BaseModel):

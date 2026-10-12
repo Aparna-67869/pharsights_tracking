@@ -2,7 +2,7 @@
 
 import * as React from "react";
 import { useQuery } from "@tanstack/react-query";
-import { GitCompareArrows, Info } from "lucide-react";
+import { FileText, GitCompareArrows, Info } from "lucide-react";
 import { api } from "@/lib/api";
 import { Badge } from "@/components/ui/badge";
 import { Input, Select } from "@/components/ui/input";
@@ -20,9 +20,10 @@ export default function FtfPage() {
   const [search, setSearch] = React.useState("");
   const [status, setStatus] = React.useState("");
   const [expiringBefore, setExpiringBefore] = React.useState("");
+  const [sort, setSort] = React.useState("drug");
   const debouncedSearch = useDebounced(search, 350);
 
-  React.useEffect(() => setPage(1), [debouncedSearch, status, expiringBefore]);
+  React.useEffect(() => setPage(1), [debouncedSearch, status, expiringBefore, sort]);
 
   const params = {
     page,
@@ -30,6 +31,7 @@ export default function FtfPage() {
     q: debouncedSearch || undefined,
     status: status || undefined,
     expiring_before: expiringBefore || undefined,
+    sort,
   };
 
   const records = useQuery({
@@ -37,6 +39,7 @@ export default function FtfPage() {
     queryFn: () => api.ftfRecords(params),
   });
   const summary = useQuery({ queryKey: ["ftf-summary"], queryFn: () => api.ftfSummary() });
+  const source = useQuery({ queryKey: ["ftf-source"], queryFn: () => api.ftfSource() });
   const trend = useQuery({ queryKey: ["ftf-trend"], queryFn: () => api.ftfMonthlyTrend(48) });
   const areas = useQuery({ queryKey: ["ftf-areas"], queryFn: () => api.ftfTherapyAreas(12) });
 
@@ -112,6 +115,32 @@ export default function FtfPage() {
           FDA patent certifications with 180-day exclusivity status, automatically version-diffed on every
           release of the FDA Paragraph IV list.
         </p>
+        {source.data?.publication_date ? (
+          <div className="mt-3 inline-flex flex-wrap items-center gap-x-3 gap-y-1 rounded-lg border border-border/70 bg-muted/30 px-3 py-2 text-xs">
+            <span className="flex items-center gap-1.5 font-medium">
+              <FileText className="h-3.5 w-3.5 text-primary" />
+              Paragraph IV Certifications List
+            </span>
+            <span className="text-muted-foreground">
+              Published <strong className="font-semibold text-foreground">
+                {source.data.publication_label ?? fmtDate(source.data.publication_date)}
+              </strong>
+            </span>
+            <span className="text-muted-foreground">
+              {fmtNumber(source.data.record_count ?? 0)} certifications · source version v{source.data.version ?? 1}
+            </span>
+            {source.data.url ? (
+              <a
+                href={source.data.url}
+                target="_blank"
+                rel="noreferrer"
+                className="text-primary underline-offset-2 hover:underline"
+              >
+                View on FDA.gov
+              </a>
+            ) : null}
+          </div>
+        ) : null}
       </header>
 
       <section className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
@@ -168,6 +197,15 @@ export default function FtfPage() {
         exportParams={{ q: debouncedSearch || undefined, status: status || undefined }}
         filters={
           <>
+            <Select
+              value={sort}
+              onChange={(event) => setSort(event.target.value)}
+              className="h-8 w-44 text-xs"
+              aria-label="Sort order"
+            >
+              <option value="drug">A–Z (FDA list order)</option>
+              <option value="submitted">Newest filing first</option>
+            </Select>
             <Select value={status} onChange={(event) => setStatus(event.target.value)} className="h-8 w-44 text-xs">
               {STATUS_OPTIONS.map((option) => (
                 <option key={option} value={option}>

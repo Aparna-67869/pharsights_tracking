@@ -108,6 +108,11 @@ class Settings(BaseSettings):
     otel_endpoint: str | None = None
     metrics_enabled: bool = True
 
+    # Self-service account creation. Enabled by default for local/demo use;
+    # production deployments should set ALLOW_SELF_REGISTRATION=false and
+    # provision accounts through the admin path instead.
+    allow_self_registration: bool = True
+
     @property
     def is_sqlite(self) -> bool:
         return self.database_url.startswith("sqlite")
