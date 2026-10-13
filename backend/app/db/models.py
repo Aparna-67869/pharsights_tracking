@@ -289,6 +289,10 @@ class FtfRecord(Base, UUIDPrimaryKey, TimestampMixin):
     source_code: Mapped[str] = mapped_column(String(64), index=True)
 
     source_key: Mapped[str] = mapped_column(String(512), index=True)
+    # 0-based position of this row in the published FDA document. The SOP renders
+    # the table in the regulator's own order, so the position is stored rather
+    # than re-derived by sorting a column.
+    source_ordinal: Mapped[int | None] = mapped_column(Integer, nullable=True, index=True)
     drug_name: Mapped[str] = mapped_column(String(512), index=True)
     dosage_form: Mapped[str | None] = mapped_column(String(255), nullable=True)
     strength: Mapped[str | None] = mapped_column(String(512), nullable=True)

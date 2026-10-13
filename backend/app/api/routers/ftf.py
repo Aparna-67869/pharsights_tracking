@@ -65,8 +65,8 @@ def list_records(
     submitted_to: date | None = None,
     expiring_before: date | None = None,
     sort: str = Query(
-        "drug",
-        description="drug = source order (alphabetical by drug name) | submitted = newest filing first",
+        "source",
+        description="source = the FDA list's own order | drug = A–Z by drug name | submitted = newest filing first",
     ),
     page: int = 1,
     page_size: int = Query(50, le=500),
@@ -75,10 +75,16 @@ def list_records(
     total = session.scalar(select(func.count()).select_from(stmt.subquery())) or 0
     if sort == "submitted":
         order = (desc(FtfRecord.date_of_submission), func.lower(FtfRecord.drug_name))
-    else:
-        # The FDA publishes the list alphabetically by drug name; default to the
-        # source's own order so the table reads the way the SOP describes it.
+    elif sort == "drug":
         order = (func.lower(FtfRecord.drug_name), func.lower(func.coalesce(FtfRecord.rld_nda, "")))
+    else:
+        # The FDA publishes the list in its own sequence (drug, then RLD/NDA).
+        # Render exactly that order so the table reads the way the PDF does —
+        # "Abacavir Sulfate" then "Abacavir", not a normalized A–Z sort.
+        order = (
+            FtfRecord.source_ordinal.asc().nulls_last(),
+            func.lower(func.coalesce(FtfRecord.rld_nda, "")),
+        )
     rows = list(
         session.scalars(stmt.order_by(*order).limit(page_size).offset((page - 1) * page_size))
     )

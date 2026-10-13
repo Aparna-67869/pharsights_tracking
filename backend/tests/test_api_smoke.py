@@ -255,3 +255,52 @@ def test_restricted_login_disables_account_creation(client, monkeypatch):
     )
     assert response.status_code == 403, response.text
 
+
+
+def test_ftf_records_default_to_published_order(client):
+    """The default sort must follow the FDA document, not an alphabetical sort.
+
+    Seeded non-alphabetically on purpose: ``Abacavir Sulfate`` (ordinal 0)
+    precedes ``Abacavir`` (ordinal 1), while an A–Z sort would reverse them.
+    """
+    from app.db.models import FtfRecord
+    from app.db.session import SessionLocal
+
+    db = SessionLocal()
+    try:
+        db.add_all(
+            [
+                FtfRecord(
+                    source_code="fda_ftf_ppiv_pdf", source_key="k0", content_hash="h0",
+                    source_ordinal=0, drug_name="Zzfirst", status="active",
+                ),
+                FtfRecord(
+                    source_code="fda_ftf_ppiv_pdf", source_key="k1", content_hash="h1",
+                    source_ordinal=1, drug_name="Aa_second", status="active",
+                ),
+            ]
+        )
+        db.commit()
+    finally:
+        db.close()
+
+    try:
+        token = _token(client, "tester@pharma-intel.local", "TestPass!234")
+        headers = {"Authorization": f"Bearer {token}"}
+
+        default = client.get("/api/v1/ftf/records?page_size=5", headers=headers).json()
+        assert [r["drug_name"] for r in default["items"]][:2] == ["Zzfirst", "Aa_second"]
+        assert default["items"][0]["source_ordinal"] == 0
+
+        alpha = client.get("/api/v1/ftf/records?sort=drug&page_size=5", headers=headers).json()
+        assert [r["drug_name"] for r in alpha["items"]][:2] == ["Aa_second", "Zzfirst"]
+    finally:
+        db = SessionLocal()
+        try:
+            db.query(FtfRecord).filter(FtfRecord.source_key.in_(["k0", "k1"])).delete(
+                synchronize_session=False
+            )
+            db.commit()
+        finally:
+            db.close()
+

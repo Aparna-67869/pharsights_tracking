@@ -79,6 +79,10 @@ def _loop() -> None:
     # Small initial delay so app startup (schema, first requests) settles.
     time.sleep(20)
     while True:
+        # Publish the next scheduled sweep up front so an operator sees a live
+        # target even while the first sweep is still running (it is set again
+        # after the sweep below, when the exact completion time is known).
+        _next_run_at = datetime.now(UTC) + timedelta(seconds=interval)
         _run_once()
         _next_run_at = datetime.now(UTC) + timedelta(seconds=interval)
         time.sleep(interval)

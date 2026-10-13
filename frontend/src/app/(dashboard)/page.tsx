@@ -34,6 +34,7 @@ import { AreaTrend, BarSeries, LineSeries } from "@/components/charts/charts";
 import { ChartSkeleton, KpiSkeleton } from "@/components/ui/skeleton";
 import { fmtNumber, fmtRelative, PRIORITY_STYLES } from "@/lib/format";
 import { useRealtime } from "@/components/providers/realtime-provider";
+import { useNow } from "@/hooks/use-now";
 import { cn } from "@/lib/utils";
 import type { AlertSummary, KpiCoverage, Page, PipelineRun } from "@/types/api";
 
@@ -88,7 +89,9 @@ export default function CommandCenterPage() {
   const router = useRouter();
   const { hasScope } = useAuth();
   const canUseCopilot = hasScope("use:copilot");
-  const now = new Date().toISOString();
+  // Tick so "x minutes ago" labels across the cockpit stay current without a
+  // reload; every relative timestamp is derived from this one clock.
+  const now = useNow(30_000).toISOString();
 
   const kpis = useQuery({ queryKey: ["kpis"], queryFn: () => api.kpis(), refetchInterval: 30_000 });
   const charts = useQuery({ queryKey: ["charts"], queryFn: () => api.charts(), staleTime: 60_000 });

@@ -180,6 +180,7 @@ class PipelineTriggerRequest(BaseModel):
 
 class FtfRecordOut(ORMModel):
     id: str
+    source_ordinal: int | None = None
     drug_name: str
     dosage_form: str | None = None
     strength: str | None = None

@@ -142,7 +142,17 @@ def parse_ftf_pdf(data: bytes) -> list[dict[str, Any]]:
         header_keywords=["drug name", "dosage form", "date of", "strength"],
         min_keyword_hits=3,
     )
-    records = [r for r in (_row_to_record(d) for d in dicts) if r]
+    records = []
+    position = 0
+    for row in dicts:
+        record = _row_to_record(row)
+        if not record:
+            continue  # page-break header rows carry no data
+        # Position in the published document, used to render the table the way
+        # the FDA orders it rather than by any sorted column.
+        record["source_ordinal"] = position
+        position += 1
+        records.append(record)
     log.info("parsed %d FTF records from PDF", len(records))
     return records
 

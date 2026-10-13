@@ -20,6 +20,7 @@ export interface TokenResponse {
 
 export interface FtfRecord {
   id: string;
+  source_ordinal?: number | null;
   drug_name: string;
   dosage_form?: string | null;
   strength?: string | null;

@@ -125,7 +125,7 @@ _ADDITIVE_COLUMNS: dict[str, dict[str, str]] = {
         "last_error": "TEXT",
     },
     # Provenance: exact source cells + non-lossy identifier forms.
-    "ftf_records": {"raw": "JSON"},
+    "ftf_records": {"raw": "JSON", "source_ordinal": "INTEGER"},
     "pte_applications": {"raw": "JSON", "application_number_normalized": "VARCHAR(64)"},
     "pte_certificates": {"raw": "JSON"},
     "active_moieties": {"raw": "JSON"},

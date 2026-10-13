@@ -58,6 +58,12 @@ _TARGETS: dict[str, tuple] = {
         lambda row: row.source_key,
         ftf_parser.content_payload,
     ),
+    "fda_ftf_ppiv_pdf": (
+        FtfRecord,
+        lambda r: ftf_parser.source_key(r),
+        lambda row: row.source_key,
+        ftf_parser.content_payload,
+    ),
     "uspto_pte_applications": (
         PteApplication,
         lambda r: _digits(r.get("application_number") or r.get("patent_number")),
@@ -123,7 +129,7 @@ def backfill_source(session: Session, source_code: str) -> dict[str, int]:
         for field in payload:
             if hasattr(row, field):
                 setattr(row, field, payload[field])
-        for field in ("raw", "application_number_normalized", "appl_no_normalized"):
+        for field in ("raw", "application_number_normalized", "appl_no_normalized", "source_ordinal"):
             if hasattr(row, field) and record.get(field) is not None:
                 setattr(row, field, record[field])
         row.content_hash = stable_hash(payload)

@@ -5,7 +5,9 @@ import { useQuery } from "@tanstack/react-query";
 import { Download, ExternalLink, Eye, FileSpreadsheet, FileText, Package } from "lucide-react";
 import { api, getToken } from "@/lib/api";
 import { Button } from "@/components/ui/button";
-import { fmtDate, fmtNumber } from "@/lib/format";
+import { fmtDate, fmtNumber, fmtRelative } from "@/lib/format";
+import { useNow } from "@/hooks/use-now";
+import { useRealtime } from "@/components/providers/realtime-provider";
 import type { SourceDocumentMeta } from "@/types/api";
 
 const MODULE_TITLES: Record<string, string> = {
@@ -50,15 +52,42 @@ function openWithToken(url: string, download = false) {
  * Provenance bar shown under every module header: which official file the page
  * is built from, exactly when the regulator published it, when we downloaded
  * and last processed it, plus one-click access to the original document.
+ *
+ * Download and last-processed stamps are absolute, so their relative form is
+ * recomputed on a clock tick rather than being frozen at first render. The
+ * panel also reconciles with the live event stream: when a sweep finishes for
+ * this module the document query is refetched, so the stamps advance on their
+ * own instead of waiting for the stale window to lapse.
  */
 export function SourceProvenance({ module }: { module: string }) {
+  useNow(30_000);
+  const realtime = useRealtime();
   const source = useQuery({
     queryKey: ["module-source", module],
     queryFn: () => api.moduleSource(module),
     staleTime: 60_000,
   });
 
+  const refresh = source.refetch;
+  React.useEffect(() => {
+    return realtime.subscribe((event) => {
+      if (
+        event.topic === "pharma.pipeline.run" ||
+        event.topic.startsWith(`pharma.${module}`)
+      ) {
+        void refresh();
+      }
+    });
+  }, [realtime, module, refresh]);
+
   const data: SourceDocumentMeta | undefined = source.data;
+
+  const scheduler = useQuery({
+    queryKey: ["scheduler"],
+    queryFn: () => api.schedulerStatus(),
+    refetchInterval: 30_000,
+  });
+
   if (!data) return null;
 
   const Icon = data.document_kind === "xlsx" || data.document_kind === "xls"
@@ -75,10 +104,14 @@ export function SourceProvenance({ module }: { module: string }) {
         ? (data.publication_label ?? fmtDate(data.publication_date))
         : "—",
     },
-    { label: "Downloaded", value: fmtDateTime(data.fetched_at) },
-    { label: "Last processed", value: fmtDateTime(data.last_processed_at) },
+    { label: "Downloaded", value: liveStamp(data.fetched_at) },
+    { label: "Last processed", value: liveStamp(data.last_processed_at) },
     { label: "Version", value: `v${data.version ?? 1}` },
     { label: "Records", value: data.record_count != null ? fmtNumber(data.record_count) : "—" },
+    {
+      label: "Next sweep",
+      value: scheduler.data?.next_run_at ? liveStamp(scheduler.data.next_run_at) : "—",
+    },
   ];
 
   return (
@@ -131,11 +164,11 @@ export function SourceProvenance({ module }: { module: string }) {
           ) : null}
         </span>
       </div>
-      <dl className="mt-2 grid grid-cols-2 gap-x-4 gap-y-1 border-t border-border/60 pt-2 text-[11px] sm:grid-cols-3 lg:grid-cols-6">
+      <dl className="mt-2 grid grid-cols-2 gap-x-4 gap-y-1 border-t border-border/60 pt-2 text-[11px] sm:grid-cols-3 lg:grid-cols-7">
         {fields.map((field) => (
           <div key={field.label} className="min-w-0">
             <dt className="truncate text-muted-foreground">{field.label}</dt>
-            <dd className="truncate">{field.value}</dd>
+            <dd className="min-w-0">{field.value}</dd>
           </div>
         ))}
       </dl>
@@ -143,15 +176,27 @@ export function SourceProvenance({ module }: { module: string }) {
   );
 }
 
-function fmtDateTime(value?: string | null): string {
+/**
+ * Render a timestamp as "12 Oct 2026, 10:50 · 6 minutes ago". The relative half
+ * is recomputed on each clock tick (see ``useNow``) so the label stays truthful
+ * without a reload, which is what an operator reads to judge whether monitoring
+ * is alive.
+ */
+function liveStamp(value?: string | null): React.ReactNode {
   if (!value) return "—";
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return "—";
-  return date.toLocaleString(undefined, {
+  const absolute = date.toLocaleString(undefined, {
     year: "numeric",
     month: "short",
     day: "2-digit",
     hour: "2-digit",
     minute: "2-digit",
   });
+  return (
+    <span title={date.toISOString()} className="inline-flex flex-wrap items-center gap-1">
+      <span>{absolute}</span>
+      <span className="text-muted-foreground">· {fmtRelative(value)}</span>
+    </span>
+  );
 }

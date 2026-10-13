@@ -28,7 +28,7 @@ export default function FtfPage() {
   const [search, setSearch] = React.useState("");
   const [status, setStatus] = React.useState("");
   const [expiringBefore, setExpiringBefore] = React.useState("");
-  const [sort, setSort] = React.useState("drug");
+  const [sort, setSort] = React.useState("source");
   const debouncedSearch = useDebounced(search, 350);
 
   React.useEffect(() => setPage(1), [debouncedSearch, status, expiringBefore, sort]);
@@ -64,6 +64,20 @@ export default function FtfPage() {
   });
 
   const columns: Column<FtfRecord>[] = [
+    {
+      key: "source_ordinal",
+      header: "#",
+      align: "right",
+      className: "w-12",
+      render: (row) => (
+        <span
+          className="tabular-nums text-muted-foreground"
+          title="Position in the published FDA list"
+        >
+          {row.source_ordinal != null ? row.source_ordinal + 1 : "—"}
+        </span>
+      ),
+    },
     {
       key: "drug_name",
       header: "Drug name",
@@ -232,7 +246,8 @@ export default function FtfPage() {
               className="h-8 w-44 text-xs"
               aria-label="Sort order"
             >
-              <option value="drug">A–Z (FDA list order)</option>
+              <option value="source">FDA list order (as published)</option>
+              <option value="drug">A–Z by drug name</option>
               <option value="submitted">Newest filing first</option>
             </Select>
             <Select value={status} onChange={(event) => setStatus(event.target.value)} className="h-8 w-44 text-xs">

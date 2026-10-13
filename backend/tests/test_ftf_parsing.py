@@ -112,3 +112,66 @@ def test_soft_hyphen_rejoined_without_touching_strengths():
     assert record["drug_name"] == "Cisatracurium Besylate (multi-dose)"
     # multi-word strengths keep their internal spacing
     assert record["strength"] == "600 mg/50 mg/ 300 mg"
+
+
+def _ftf_pdf() -> bytes:
+    """A tiny bordered PDF whose rows are deliberately NOT alphabetical.
+
+    Drawn as a real grid (borders + cells) so PyMuPDF's ``find_tables`` detects
+    it the same way it detects the FDA document, rather than a loose text blob.
+    """
+    import pymupdf
+
+    headers = ["Drug Name", "Dosage Form", "Strength", "RLD/NDA", "Date of Submission"]
+    rows = [
+        ["Abacavir Sulfate", "Tablets", "300 mg", "Ziagen 20977", "1/28/2009"],
+        ["Abacavir", "Oral Solution", "20 mg/mL", "Ziagen 20978", "12/27/2012"],
+        ["Abacavir Sulfate, Dolutegravir and Lamivudine", "Tablets", "600 mg", "Triumeq 205551", "8/14/2017"],
+    ]
+
+    document = pymupdf.open()
+    page = document.new_page(width=900, height=300)
+    page.insert_text((30, 40), "Paragraph IV Certifications as of September 28, 2026", fontsize=9)
+
+    cols = [30, 300, 430, 520, 640, 860]
+    top, row_h = 60, 24
+    grid = [headers, *rows]
+
+    for index in range(len(grid) + 1):
+        y = top + index * row_h
+        page.draw_line((cols[0], y), (cols[-1], y))
+    for x in cols:
+        page.draw_line((x, top), (x, top + len(grid) * row_h))
+
+    for r, row in enumerate(grid):
+        for c, cell in enumerate(row):
+            page.insert_text(
+                (cols[c] + 2, top + r * row_h + 15),
+                cell,
+                fontsize=7,
+            )
+
+    data = document.tobytes()
+    document.close()
+    return data
+
+
+def test_pdf_rows_keep_published_order_with_contiguous_ordinals():
+    """The FDA list is not alphabetically sorted; ordinals must follow the file.
+
+    The published list puts ``Abacavir Sulfate`` ahead of ``Abacavir``, so an
+    A–Z sort is not the source order. The ordinal captured at parse time is what
+    the dashboard orders by, and it must be contiguous (no gaps left by the
+    page-break header rows the parser skips).
+    """
+    records = ftf_parser.parse_ftf_pdf(_ftf_pdf())
+    names = [record["drug_name"] for record in records]
+    ordinals = [record["source_ordinal"] for record in records]
+
+    assert names == [
+        "Abacavir Sulfate",
+        "Abacavir",
+        "Abacavir Sulfate, Dolutegravir and Lamivudine",
+    ], names
+    assert ordinals == [0, 1, 2], ordinals
+
