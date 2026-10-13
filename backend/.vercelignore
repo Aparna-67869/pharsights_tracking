@@ -1,0 +1,15 @@
+# Keep the deployment small — Vercel rejects large uploads, and none of this is
+# needed at runtime on a serverless function.
+data/
+logs/
+tests/
+dags/
+.pytest_cache/
+.ruff_cache/
+__pycache__/
+*.py[cod]
+*.log
+.venv/
+venv/
+.env
+.env.*

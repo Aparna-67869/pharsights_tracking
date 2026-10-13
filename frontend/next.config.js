@@ -1,7 +1,10 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   reactStrictMode: true,
-  output: "standalone",
+  // The standalone server (node .next/standalone/server.js) is what the local
+  // Docker-style supervisor serves. Vercel builds and serves Next.js itself, so
+  // it must not use standalone there (VERCEL is set in Vercel's build env).
+  output: process.env.VERCEL ? undefined : "standalone",
   env: {
     NEXT_PUBLIC_API_BASE_URL:
       process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:8000",
