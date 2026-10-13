@@ -10,6 +10,13 @@ const config: Config = {
       screens: { "2xl": "1600px" },
     },
     extend: {
+      fontSize: {
+        // Slightly raised over Tailwind defaults so dense regulatory tables stay
+        // comfortably readable at the command-center's data density.
+        xs: ["0.8125rem", { lineHeight: "1.15rem" }], // 13px
+        sm: ["0.9375rem", { lineHeight: "1.35rem" }], // 15px
+        base: ["1rem", { lineHeight: "1.5rem" }], // 16px
+      },
       colors: {
         border: "hsl(var(--border))",
         input: "hsl(var(--input))",

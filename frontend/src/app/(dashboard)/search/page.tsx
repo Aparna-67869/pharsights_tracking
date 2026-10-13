@@ -104,7 +104,7 @@ export default function SearchPage() {
         <EmptyState
           icon={<Search className="h-8 w-8" />}
           title="Start typing to search"
-          description="The search box understands drug names, patent numbers, NDA/ANDA numbers, sponsors, active moieties, NCT IDs and therapy areas."
+          description="The search box understands drug names, patent numbers, NDA/ANDA numbers, sponsors and active moieties."
         />
       ) : results.isLoading ? (
         <TableSkeleton rows={6} cols={3} />

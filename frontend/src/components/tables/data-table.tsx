@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { ChevronLeft, ChevronRight, Download, Filter, RotateCw, X } from "lucide-react";
+import { ChevronDown, ChevronLeft, ChevronRight, Download, FileSpreadsheet, Filter, RotateCw, X } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -39,6 +39,7 @@ export function DataTable<T extends { id?: string }>({
   exportParams,
   emptyMessage = "No records found",
   toolbar,
+  renderDetail,
 }: {
   title: string;
   description?: string;
@@ -59,12 +60,15 @@ export function DataTable<T extends { id?: string }>({
   exportParams?: Record<string, unknown>;
   emptyMessage?: string;
   toolbar?: React.ReactNode;
+  renderDetail?: (row: T) => React.ReactNode;
 }) {
   const [query, setQuery] = React.useState("");
+  const [expanded, setExpanded] = React.useState<string | null>(null);
+  const [exportOpen, setExportOpen] = React.useState(false);
 
-  const download = () => {
+  const download = (format: "csv" | "xlsx" = "csv") => {
     if (!exportPath) return;
-    const url = api.exportUrl(exportPath, exportParams);
+    const url = api.exportUrl(exportPath, { ...exportParams, format });
     const token = getToken();
     // The export endpoint is bearer-protected; fetch then save as a blob.
     void fetch(url, { headers: token ? { Authorization: `Bearer ${token}` } : {} })
@@ -73,7 +77,7 @@ export function DataTable<T extends { id?: string }>({
         const href = URL.createObjectURL(blob);
         const anchor = document.createElement("a");
         anchor.href = href;
-        anchor.download = `${title.toLowerCase().replace(/\s+/g, "-")}.csv`;
+        anchor.download = exportFilename(title, format);
         anchor.click();
         URL.revokeObjectURL(href);
       });
@@ -122,10 +126,43 @@ export function DataTable<T extends { id?: string }>({
             </Button>
           ) : null}
           {exportPath ? (
-            <Button variant="outline" size="sm" onClick={download}>
-              <Download className="h-3.5 w-3.5" />
-              Export CSV
-            </Button>
+            <div className="relative">
+              <Button variant="outline" size="sm" onClick={() => setExportOpen((v) => !v)}>
+                <Download className="h-3.5 w-3.5" />
+                Export
+                <ChevronDown className="h-3.5 w-3.5" />
+              </Button>
+              {exportOpen ? (
+                <>
+                  <button
+                    className="fixed inset-0 z-10 cursor-default"
+                    aria-hidden
+                    tabIndex={-1}
+                    onClick={() => setExportOpen(false)}
+                  />
+                  <div className="absolute right-0 z-20 mt-1 w-44 overflow-hidden rounded-lg border border-border bg-card shadow-glass">
+                    <button
+                      className="flex w-full items-center gap-2 px-3 py-2 text-left text-xs hover:bg-muted/60"
+                      onClick={() => {
+                        setExportOpen(false);
+                        download("csv");
+                      }}
+                    >
+                      <FileSpreadsheet className="h-3.5 w-3.5 text-muted-foreground" /> CSV download
+                    </button>
+                    <button
+                      className="flex w-full items-center gap-2 px-3 py-2 text-left text-xs hover:bg-muted/60"
+                      onClick={() => {
+                        setExportOpen(false);
+                        download("xlsx");
+                      }}
+                    >
+                      <FileSpreadsheet className="h-3.5 w-3.5 text-success" /> Excel (.xlsx)
+                    </button>
+                  </div>
+                </>
+              ) : null}
+            </div>
           ) : null}
         </div>
       </div>
@@ -141,6 +178,7 @@ export function DataTable<T extends { id?: string }>({
         <table className="data-table">
           <thead>
             <tr>
+              {renderDetail ? <th className="w-8" aria-label="Expand row" /> : null}
               {columns.map((column) => (
                 <th
                   key={column.key}
@@ -155,6 +193,7 @@ export function DataTable<T extends { id?: string }>({
             {loading && rows.length === 0 ? (
               Array.from({ length: 8 }).map((_, index) => (
                 <tr key={`skeleton-${index}`}>
+                  {renderDetail ? <td /> : null}
                   {columns.map((column) => (
                     <td key={column.key}>
                       <div className="h-4 w-full animate-pulse rounded bg-muted/60" />
@@ -164,31 +203,57 @@ export function DataTable<T extends { id?: string }>({
               ))
             ) : error ? (
               <tr>
-                <td colSpan={columns.length} className="py-10 text-center text-xs text-destructive">
+                <td colSpan={columns.length + (renderDetail ? 1 : 0)} className="py-10 text-center text-xs text-destructive">
                   {error}
                 </td>
               </tr>
             ) : rows.length === 0 ? (
               <tr>
-                <td colSpan={columns.length} className="py-10 text-center text-xs text-muted-foreground">
+                <td colSpan={columns.length + (renderDetail ? 1 : 0)} className="py-10 text-center text-xs text-muted-foreground">
                   {emptyMessage}
                 </td>
               </tr>
             ) : (
-              rows.map((row, index) => (
-                <tr key={row.id ?? index}>
-                  {columns.map((column) => (
-                    <td
-                      key={column.key}
-                      className={cn(column.align === "right" && "text-right tabular-nums", column.className)}
+              rows.map((row, index) => {
+                const rowId = row.id ?? String(index);
+                const isOpen = expanded === rowId;
+                return (
+                  <React.Fragment key={rowId}>
+                    <tr
+                      className={cn(renderDetail && "cursor-pointer")}
+                      onClick={
+                        renderDetail
+                          ? () => setExpanded((current) => (current === rowId ? null : rowId))
+                          : undefined
+                      }
                     >
-                      {column.render
-                        ? column.render(row)
-                        : ((row as Record<string, unknown>)[column.key] as React.ReactNode) ?? "—"}
-                    </td>
-                  ))}
-                </tr>
-              ))
+                      {renderDetail ? (
+                        <td className="text-muted-foreground">
+                          <ChevronRight className={cn("h-3.5 w-3.5 transition-transform", isOpen && "rotate-90")} />
+                        </td>
+                      ) : null}
+                      {columns.map((column) => (
+                        <td
+                          key={column.key}
+                          className={cn(column.align === "right" && "text-right tabular-nums", column.className)}
+                        >
+                          {column.render
+                            ? column.render(row)
+                            : ((row as Record<string, unknown>)[column.key] as React.ReactNode) ?? "—"}
+                        </td>
+                      ))}
+                    </tr>
+                    {renderDetail && isOpen ? (
+                      <tr className="bg-surface-muted/40">
+                        <td />
+                        <td colSpan={columns.length} className="px-3 py-3">
+                          {renderDetail(row)}
+                        </td>
+                      </tr>
+                    ) : null}
+                  </React.Fragment>
+                );
+              })
             )}
           </tbody>
         </table>
@@ -224,4 +289,8 @@ export function DataTable<T extends { id?: string }>({
       </div>
     </Card>
   );
+}
+
+function exportFilename(title: string, format: string): string {
+  return `${title.toLowerCase().replace(/\s+/g, "-")}.${format}`;
 }

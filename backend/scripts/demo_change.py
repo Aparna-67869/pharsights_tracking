@@ -42,6 +42,7 @@ def _row_to_record(row: FtfRecord) -> dict:
         "first_commercial_marketing_date": row.first_commercial_marketing_date,
         "last_qualifying_patent_expiry": row.last_qualifying_patent_expiry,
         "certification_type": row.certification_type,
+        "raw": row.raw or {},
     }
 
 

@@ -73,6 +73,13 @@ async def lifespan(app: FastAPI):
         # Dev convenience: ensure the schema exists. Production uses Alembic.
         create_all()
         reconcile_schema()
+
+    # Automatic source monitoring: fetch, diff, analyse and alert on a cadence
+    # with no user action. Runs only in the serving process, never under pytest.
+    if settings.environment != "test":
+        from app.services import scheduler
+
+        scheduler.start()
     yield
     log.info("shutting down %s", settings.app_name)
 

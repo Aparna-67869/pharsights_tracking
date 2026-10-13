@@ -206,7 +206,8 @@ def _payload_for(entity_type: str, record: dict[str, Any]) -> dict[str, Any]:
 
 def load_ftf(session: Session, source_code: str, records: list[dict[str, Any]], document, run_id, is_baseline: bool = False) -> RecordDelta:
     valid, report = V.validate_batch(records, V.FTF_VALIDATORS)
-    log.info("FTF validation: %s", report.to_dict())
+    valid, fidelity = V.validate_batch(valid, V.FTF_FIDELITY_VALIDATORS)
+    log.info("FTF validation: %s fidelity: %s", report.to_dict(), fidelity.to_dict())
     delta = sync_versioned_records(
         session,
         FtfRecord,
@@ -239,7 +240,8 @@ def load_ftf(session: Session, source_code: str, records: list[dict[str, Any]], 
 
 def load_pte_applications(session: Session, source_code: str, records, document, run_id, is_baseline: bool = False) -> RecordDelta:
     valid, report = V.validate_batch(records, V.PTE_APPLICATION_VALIDATORS)
-    log.info("PTE application validation: %s", report.to_dict())
+    valid, fidelity = V.validate_batch(valid, V.PTE_APPLICATION_FIDELITY)
+    log.info("PTE application validation: %s fidelity: %s", report.to_dict(), fidelity.to_dict())
     delta = sync_versioned_records(
         session,
         PteApplication,
@@ -252,6 +254,8 @@ def load_pte_applications(session: Session, source_code: str, records, document,
             "source_key": key,
             "content_hash": digest,
             **pte_parser.application_payload(rec),
+            "patent_number": rec.get("patent_number"),
+            "application_number_normalized": rec.get("application_number_normalized"),
             "patent_center_link": rec.get("patent_center_link"),
             "sponsor_name": rec.get("sponsor_name"),
             "status": rec.get("status") or "filed",
@@ -272,7 +276,8 @@ def load_pte_applications(session: Session, source_code: str, records, document,
 
 def load_pte_certificates(session: Session, source_code: str, records, document, run_id, is_baseline: bool = False) -> RecordDelta:
     valid, report = V.validate_batch(records, V.PTE_CERTIFICATE_VALIDATORS)
-    log.info("PTE certificate validation: %s", report.to_dict())
+    valid, fidelity = V.validate_batch(valid, V.PTE_CERTIFICATE_FIDELITY)
+    log.info("PTE certificate validation: %s fidelity: %s", report.to_dict(), fidelity.to_dict())
     delta = sync_versioned_records(
         session,
         PteCertificate,
@@ -285,6 +290,7 @@ def load_pte_certificates(session: Session, source_code: str, records, document,
             "source_key": key,
             "content_hash": digest,
             **pte_parser.certificate_payload(rec),
+            "patent_number": rec.get("patent_number"),
             "sponsor_name": rec.get("sponsor_name"),
             "status": rec.get("status") or "granted",
         },
@@ -337,7 +343,8 @@ def load_active_moieties(session: Session, source_code: str, records, document, 
 
 def load_orange_book_products(session: Session, source_code: str, records, document, run_id, is_baseline: bool = False) -> RecordDelta:
     valid, report = V.validate_batch(records, V.ORANGE_BOOK_PRODUCT_VALIDATORS)
-    log.info("Orange Book product validation: %s", report.to_dict())
+    valid, fidelity = V.validate_batch(valid, V.ORANGE_BOOK_FIDELITY)
+    log.info("Orange Book product validation: %s fidelity: %s", report.to_dict(), fidelity.to_dict())
     delta = sync_versioned_records(
         session,
         OrangeBookProduct,
@@ -351,6 +358,7 @@ def load_orange_book_products(session: Session, source_code: str, records, docum
             "content_hash": digest,
             "appl_type": rec.get("appl_type"),
             "appl_no": rec.get("appl_no"),
+            "appl_no_normalized": rec.get("appl_no_normalized"),
             "product_no": rec.get("product_no"),
             **ob_parser.product_payload(rec),
         },

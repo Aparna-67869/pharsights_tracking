@@ -32,9 +32,11 @@ import type {
   PteApplication,
   PteCertificate,
   PteSummary,
+  ModuleComparison,
   SavedView,
   SearchResult,
   SourceDefinition,
+  SourceDocumentMeta,
   TokenResponse,
 } from "@/types/api";
 
@@ -138,15 +140,6 @@ export const api = {
   },
   me: () => request<{ username: string; role: string; permissions: string[] }>("/auth/me"),
 
-  async register(payload: { full_name: string; email: string; password: string }): Promise<{
-    id: string;
-    email: string;
-    full_name: string;
-    role: string;
-  }> {
-    return request("/auth/register", { method: "POST", body: JSON.stringify(payload) });
-  },
-
   // ---- Dashboard ----
   kpis: async (): Promise<{ kpis: Kpis; alerts: AlertSummary }> => {
     const raw = await request<{ kpis: Kpis; alerts: AlertSummary & { open_total?: number; by_priority?: Record<string, number> } }>(
@@ -166,6 +159,10 @@ export const api = {
     };
   },
   moduleSummaries: () => request<Record<string, Record<string, number>>>("/dashboard/module-summaries"),
+  moduleSource: (module: string) =>
+    request<SourceDocumentMeta>(`/sources/${module}/document`),
+  moduleComparison: (module: string, limit = 200) =>
+    request<ModuleComparison>(`/sources/comparison/${module}${qs({ limit })}`),
   charts: () => request<DashboardCharts>("/dashboard/charts/all"),
 
   // ---- FTF ----
@@ -185,10 +182,6 @@ export const api = {
     }>("/ftf/source"),
   ftfMonthlyTrend: (months = 36) =>
     request<Array<{ month: string; count: number }>>(`/ftf/analytics/monthly-trend${qs({ months })}`),
-  ftfTherapyAreas: (limit = 10) =>
-    request<Array<{ therapy_area: string; filings: number }>>(
-      `/ftf/analytics/therapy-areas${qs({ limit })}`,
-    ),
 
   // ---- PTE ----
   pteApplications: (params?: Record<string, unknown>) =>
@@ -257,6 +250,10 @@ export const api = {
   },
   updateAlert: (id: string, body: { status?: string; acknowledged_by?: string }) =>
     request<Alert>(`/alerts/${id}`, { method: "PATCH", body: JSON.stringify(body) }),
+  alertDeliveries: (id: string) =>
+    request<{ alert_id: string; channels: Array<{ channel: string; status: string; recipient?: string | null; sent_at?: string | null; error?: string | null }> }>(
+      `/alerts/${id}/deliveries`,
+    ),
 
   // ---- Search / graph ----
   search: (q: string, limit = 25) => request<SearchResult>(`/search${qs({ q, limit })}`),
@@ -274,10 +271,22 @@ export const api = {
       body: JSON.stringify({ question, use_llm: useLlm, conversation_id: conversationId }),
     }),
   copilotSuggested: () => request<string[]>("/copilot/suggested-questions"),
+  copilotStatus: () =>
+    request<{ available: boolean; llm_configured: boolean; provider: string; model: string }>(
+      "/copilot/status",
+    ),
 
   // ---- Sources / pipeline ----
   sources: () => request<SourceDefinition[]>("/sources"),
   pipelineRuns: (limit = 20) => request<Page<PipelineRun>>(`/pipeline/runs${qs({ page_size: limit })}`),
+  schedulerStatus: () =>
+    request<{
+      enabled: boolean;
+      interval_minutes: number;
+      last_run_at: string | null;
+      next_run_at: string | null;
+      last_result: { status: string; changes_detected: number; alerts_created: number } | null;
+    }>("/pipeline/scheduler"),
   triggerPipeline: (body: Record<string, unknown> = {}) =>
     request<{ status: string; message: string }>("/pipeline/run", {
       method: "POST",
@@ -287,11 +296,41 @@ export const api = {
   // ---- Operations: audit, opportunities, subscriptions ----
   audit: (limit = 50) => request<AuditLogEntry[]>(`/audit${qs({ limit })}`),
   opportunities: () => request<OpportunitySummary>("/opportunities"),
+  deliveryChannels: () =>
+    request<{ identity_email: string; channels: Array<{ name: string; configured: boolean }> }>(
+      "/delivery-channels",
+    ),
+  testDelivery: () =>
+    request<{ sent_to: string; results: Array<{ channel: string; status: string; recipient?: string; error?: string }> }>(
+      "/delivery-channels/test",
+      { method: "POST" },
+    ),
   subscriptions: () => request<AlertSubscription[]>("/subscriptions"),
   createSubscription: (body: Record<string, unknown>) =>
     request<AlertSubscription>("/subscriptions", { method: "POST", body: JSON.stringify(body) }),
   deleteSubscription: (id: string) =>
     request<{ deleted: boolean }>(`/subscriptions/${id}`, { method: "DELETE" }),
+
+  // ---- Administration: user management (admin only) ----
+  users: () =>
+    request<
+      Array<{
+        id: string;
+        email: string;
+        full_name: string;
+        role: string;
+        is_active: boolean;
+        last_login_at: string | null;
+        created_at: string;
+      }>
+    >("/auth/users"),
+  updateUser: (id: string, body: { role?: string; is_active?: boolean; full_name?: string }) =>
+    request<{ id: string }>(`/auth/users/${id}`, { method: "PATCH", body: JSON.stringify(body) }),
+  provisionUser: (body: { full_name: string; email: string; password: string }) =>
+    request<{ id: string; email: string; full_name: string; role: string }>("/auth/register", {
+      method: "POST",
+      body: JSON.stringify(body),
+    }),
 
   // ---- Saved views ----
   savedViews: () => request<SavedView[]>("/dashboard/views"),
@@ -302,6 +341,10 @@ export const api = {
 
   // ---- Exports (browser download) ----
   exportUrl: (path: string, params?: Record<string, unknown>) => `${API}${path}${qs(params)}`,
+  sourceFileUrl: (module: string, mode: "view" | "download" = "view") =>
+    `${API}/sources/${module}/document/${mode}`,
+  officialDocumentUrl: (module: string, mode: "view" | "download" = "view") =>
+    `${API}/sources/${module}/document/official/${mode}`,
 };
 
 export { BASE as API_BASE };

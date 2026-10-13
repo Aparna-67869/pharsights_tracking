@@ -5,7 +5,7 @@ from __future__ import annotations
 from datetime import date, datetime
 from typing import Any, Generic, TypeVar
 
-from pydantic import BaseModel, ConfigDict, Field, field_validator
+from pydantic import AliasChoices, BaseModel, ConfigDict, Field, field_validator
 
 T = TypeVar("T")
 
@@ -33,6 +33,13 @@ class Page(BaseModel, Generic[T]):
 class TokenRequest(BaseModel):
     username: str
     password: str
+
+    @field_validator("username")
+    @classmethod
+    def _normalize_username(cls, value: str) -> str:
+        # Emails are stored case-folded; normalize so a differently-cased or
+        # padded entry still matches the one authorized account.
+        return value.strip().casefold()
 
 
 class TokenResponse(BaseModel):
@@ -74,6 +81,26 @@ class UserProfile(BaseModel):
     username: str
     role: str
     permissions: list[str]
+
+
+class UserOut(BaseModel):
+    """Account record for the administration user list."""
+
+    id: str
+    email: str
+    full_name: str
+    role: str
+    is_active: bool
+    last_login_at: datetime | None = None
+    created_at: datetime
+
+
+class UserUpdate(BaseModel):
+    """Administrator edits to an account. Only provided fields are applied."""
+
+    role: str | None = None
+    is_active: bool | None = None
+    full_name: str | None = None
 
 
 # ---- Sources & pipeline ---------------------------------------------------
@@ -168,7 +195,10 @@ class FtfRecordOut(ORMModel):
     last_qualifying_patent_expiry: date | None = None
     certification_type: str | None = None
     source_code: str
+    source_key: str
     first_seen_at: datetime
+    last_seen_at: datetime | None = None
+    raw: dict[str, Any] = {}
     drug_id: str | None = None
     patent_id: str | None = None
 
@@ -187,6 +217,8 @@ class PteApplicationOut(ORMModel):
     sponsor_name: str | None = None
     status: str | None = None
     source_code: str
+    source_key: str | None = None
+    raw: dict[str, Any] = {}
 
 
 class PteCertificateOut(ORMModel):
@@ -202,6 +234,9 @@ class PteCertificateOut(ORMModel):
     granted_date: date | None = None
     status: str | None = None
     source_code: str
+    source_key: str | None = None
+    first_seen_at: datetime | None = None
+    raw: dict[str, Any] = {}
 
 
 # ---- PDE ------------------------------------------------------------------
@@ -215,6 +250,9 @@ class ActiveMoietyOut(ORMModel):
     approval_year: int | None = None
     status: str | None = None
     source_code: str
+    source_key: str | None = None
+    first_seen_at: datetime | None = None
+    raw: dict[str, Any] = {}
     drug_id: str | None = None
 
 
@@ -237,6 +275,9 @@ class OrangeBookProductOut(ORMModel):
     rld: bool | None = None
     rs: bool | None = None
     product_type: str | None = None
+    source_code: str | None = None
+    source_key: str | None = None
+    raw: dict[str, Any] = {}
 
 
 class OrangeBookPatentOut(ORMModel):
@@ -327,10 +368,16 @@ class AlertOut(ORMModel):
     entity_key: str | None = None
     drug_name: str | None = None
     sponsor_name: str | None = None
+    patent_number: str | None = None
     insight_id: str | None = None
     channels_sent: list[str] | None = None
     acknowledged_by: str | None = None
+    acknowledged_at: datetime | None = None
+    resolved_at: datetime | None = None
     created_at: datetime
+    source_url: str | None = None
+    source_filename: str | None = None
+    source_label: str | None = None
 
 
 class AlertUpdate(BaseModel):
@@ -460,7 +507,9 @@ class AuditLogOut(ORMModel):
     resource_type: str | None = None
     resource_id: str | None = None
     detail: dict[str, Any] | None = None
-    created_at: datetime
+    # The model stores the timestamp as ``occurred_at``; expose it as
+    # ``created_at`` to match the rest of the API's audit entries.
+    created_at: datetime = Field(validation_alias=AliasChoices("created_at", "occurred_at"))
 
 
 class AlertSubscriptionIn(BaseModel):

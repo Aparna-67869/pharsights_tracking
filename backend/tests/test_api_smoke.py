@@ -15,6 +15,11 @@ def _token(client, email: str, password: str) -> str:
     return response.json()["access_token"]
 
 
+def _admin_headers(client) -> dict[str, str]:
+    """Provisioning is administrator-only, so sign-up tests act as an admin."""
+    return {"Authorization": f"Bearer {_token(client, 'tester@pharma-intel.local', 'TestPass!234')}"}
+
+
 def test_health_is_public(client):
     response = client.get("/health")
     assert response.status_code == 200
@@ -51,6 +56,18 @@ def test_sources_endpoint_exposes_health_fields(client):
         assert "last_checked_at" in sources[0]
         assert "last_success_at" in sources[0]
         assert "last_error" in sources[0]
+
+
+def test_changes_export_route_is_not_shadowed_by_the_id_route(client):
+    """``/changes/export`` must resolve to the export handler, not ``{change_id}``.
+
+    Registering the dynamic ``/changes/{change_id}`` first used to swallow the
+    literal path, so the Changes page's Export button hit a 404.
+    """
+    token = _token(client, "tester@pharma-intel.local", "TestPass!234")
+    response = client.get("/api/v1/changes/export", headers={"Authorization": f"Bearer {token}"})
+    assert response.status_code == 200, response.text
+    assert response.headers["content-type"].startswith("text/csv")
 
 
 def test_wrong_password_is_rejected(client):
@@ -151,10 +168,11 @@ def test_viewer_role_cannot_use_copilot(client):
 
 
 def test_signup_creates_least_privilege_account(client):
-    """Self-registration must create a working, read-only (viewer) account."""
+    """An admin can provision a least-privilege (viewer) account."""
     email = "newcomer@pharma-intel.local"
     response = client.post(
         "/api/v1/auth/register",
+        headers=_admin_headers(client),
         json={"full_name": "New Comer", "email": email, "password": "NewComerPass!234"},
     )
     assert response.status_code == 201, response.text
@@ -178,6 +196,7 @@ def test_signup_rejects_duplicate_email(client):
     """Registering an email that already exists must conflict, not silently succeed."""
     response = client.post(
         "/api/v1/auth/register",
+        headers=_admin_headers(client),
         json={
             "full_name": "Tester Again",
             "email": "tester@pharma-intel.local",
@@ -190,6 +209,49 @@ def test_signup_rejects_duplicate_email(client):
 def test_signup_rejects_short_password(client):
     response = client.post(
         "/api/v1/auth/register",
+        headers=_admin_headers(client),
         json={"full_name": "Shorty", "email": "shorty@pharma-intel.local", "password": "abc"},
     )
     assert response.status_code == 422
+
+
+def test_restricted_login_blocks_other_accounts(client, monkeypatch):
+    """With the lock-down on, only the one authorized account may sign in."""
+    from app.core.config import settings
+
+    monkeypatch.setattr(settings, "restrict_login", True)
+    monkeypatch.setattr(settings, "allowed_login_email", "tester@pharma-intel.local")
+
+    # A valid seeded account that is not the authorized one is refused.
+    blocked = client.post(
+        "/api/v1/auth/token",
+        json={"username": "viewer@pharma-intel.local", "password": "ViewerPass!234"},
+    )
+    assert blocked.status_code == 401, blocked.text
+
+    # The authorized account, however cased or padded, still works.
+    ok = client.post(
+        "/api/v1/auth/token",
+        json={"username": "  Tester@Pharma-Intel.Local ", "password": "TestPass!234"},
+    )
+    assert ok.status_code == 200, ok.text
+    assert ok.json()["username"] == "tester@pharma-intel.local"
+
+
+def test_restricted_login_disables_account_creation(client, monkeypatch):
+    """With the lock-down on, even an administrator cannot create accounts."""
+    from app.core.config import settings
+
+    monkeypatch.setattr(settings, "restrict_login", True)
+    monkeypatch.setattr(settings, "allowed_login_email", "tester@pharma-intel.local")
+    response = client.post(
+        "/api/v1/auth/register",
+        headers=_admin_headers(client),
+        json={
+            "full_name": "Should Not Exist",
+            "email": "nope@pharma-intel.local",
+            "password": "NopePass!234",
+        },
+    )
+    assert response.status_code == 403, response.text
+

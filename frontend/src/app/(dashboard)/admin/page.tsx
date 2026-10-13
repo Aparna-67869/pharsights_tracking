@@ -14,11 +14,12 @@ import { fmtDateTime, fmtRelative, moduleLabel } from "@/lib/format";
 import type { AlertSubscription } from "@/types/api";
 
 const MODULES = ["ftf", "pte", "pde", "orange_book"];
-const CHANNELS: Array<{ id: string; label: string; icon: React.ReactNode }> = [
-  { id: "dashboard", label: "Dashboard", icon: <Monitor className="h-3 w-3" /> },
-  { id: "email", label: "Email", icon: <Mail className="h-3 w-3" /> },
-  { id: "teams", label: "Teams", icon: <MessageSquare className="h-3 w-3" /> },
-];
+const CHANNEL_META: Record<string, { label: string; icon: React.ReactNode }> = {
+  dashboard: { label: "Dashboard", icon: <Monitor className="h-3 w-3" /> },
+  email: { label: "Email", icon: <Mail className="h-3 w-3" /> },
+  teams: { label: "Teams", icon: <MessageSquare className="h-3 w-3" /> },
+  slack: { label: "Slack", icon: <MessageSquare className="h-3 w-3" /> },
+};
 
 /**
  * Administration: the user's own alert subscriptions plus the platform audit
@@ -33,11 +34,19 @@ export default function AdminPage() {
   const [sponsors, setSponsors] = React.useState("");
   const [drugs, setDrugs] = React.useState("");
   const [minPriority, setMinPriority] = React.useState(40);
-  const [channels, setChannels] = React.useState<string[]>(["dashboard", "email", "teams"]);
+  const [channels, setChannels] = React.useState<string[]>(["dashboard"]);
   const [error, setError] = React.useState<string | null>(null);
 
   const subscriptions = useQuery({ queryKey: ["subscriptions"], queryFn: () => api.subscriptions() });
   const audit = useQuery({ queryKey: ["audit"], queryFn: () => api.audit(40) });
+  const channelsStatus = useQuery({
+    queryKey: ["delivery-channels"],
+    queryFn: () => api.deliveryChannels(),
+  });
+  const configuredChannels = React.useMemo(
+    () => (channelsStatus.data?.channels ?? []).filter((c) => c.configured).map((c) => c.name),
+    [channelsStatus.data],
+  );
 
   const create = useMutation({
     mutationFn: () =>
@@ -77,14 +86,18 @@ export default function AdminPage() {
           <ShieldCheck className="h-4.5 w-4.5 text-primary" /> Administration
         </h1>
         <p className="mt-0.5 text-xs text-muted-foreground">
-          Alert subscriptions and the platform audit trail. Notifications are delivered to your authenticated
-          address — no per-user mail or webhook setup required.
+          Alert subscriptions and the platform audit trail. Subscriptions are scoped to your authenticated
+          identity; notifications are delivered over the channels enabled for this deployment.
         </p>
       </header>
 
       <section className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-        <KpiCard label="My subscriptions" value={subscriptions.data?.length ?? 0} tone="primary" icon={<BellPlus className="h-3.5 w-3.5 text-primary" />} />
-        <KpiCard label="Notification address" value={user?.username ?? "—"} hint="Email + Teams target" />
+        <KpiCard label="Subscriptions" value={subscriptions.data?.length ?? 0} tone="primary" icon={<BellPlus className="h-3.5 w-3.5 text-primary" />} />
+        <KpiCard
+          label="Delivery channels"
+          value={channelsStatus.isLoading ? "…" : `${configuredChannels.length}/${channelsStatus.data?.channels?.length ?? 4}`}
+          hint={configuredChannels.length ? configuredChannels.join(" · ") : "dashboard only"}
+        />
         <KpiCard label="Audit events" value={audit.data?.length ?? 0} hint="Most recent 40" />
         <KpiCard label="Access level" value={(user?.role ?? "viewer").replace(/_/g, " ")} tone="success" icon={<ShieldCheck className="h-3.5 w-3.5 text-success" />} />
       </section>
@@ -142,21 +155,31 @@ export default function AdminPage() {
               <div className="space-y-1.5">
                 <label className="text-[11px] text-muted-foreground">Channels</label>
                 <div className="flex flex-wrap gap-1.5">
-                  {CHANNELS.map((channel) => (
-                    <button
-                      key={channel.id}
-                      onClick={() => setChannels((list) => toggle(list, channel.id))}
-                      className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[11px] transition-colors ${
-                        channels.includes(channel.id)
-                          ? "border-primary/50 bg-primary/15 text-primary"
-                          : "border-border/70 text-muted-foreground hover:bg-muted/60"
-                      }`}
-                    >
-                      {channel.icon}
-                      {channel.label}
-                    </button>
-                  ))}
+                  {Object.entries(CHANNEL_META).map(([id, meta]) => {
+                    const available = configuredChannels.includes(id);
+                    return (
+                      <button
+                        key={id}
+                        onClick={() => available && setChannels((list) => toggle(list, id))}
+                        disabled={!available}
+                        title={available ? undefined : "Not configured on this deployment"}
+                        className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[11px] transition-colors ${
+                          channels.includes(id) && available
+                            ? "border-primary/50 bg-primary/15 text-primary"
+                            : "border-border/70 text-muted-foreground hover:bg-muted/60"
+                        } ${available ? "" : "cursor-not-allowed opacity-40"}`}
+                      >
+                        {meta.icon}
+                        {meta.label}
+                        {available ? null : " · off"}
+                      </button>
+                    );
+                  })}
                 </div>
+                <p className="text-[10px] text-muted-foreground">
+                  Channels marked <span className="opacity-70">off</span> are not configured on this deployment;
+                  the dashboard channel is always active.
+                </p>
               </div>
 
               {error ? <p className="text-[11px] text-destructive">{error}</p> : null}

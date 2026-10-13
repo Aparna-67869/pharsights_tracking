@@ -4,7 +4,7 @@ import * as React from "react";
 import { ArrowDownRight, ArrowUpRight, Minus } from "lucide-react";
 import { motion } from "framer-motion";
 import { AnimatedNumber } from "@/components/common/animated-number";
-import { Sparkline, seedSeries } from "@/components/common/sparkline";
+import { Sparkline } from "@/components/common/sparkline";
 import { cn } from "@/lib/utils";
 import { fmtRelative } from "@/lib/format";
 
@@ -48,10 +48,7 @@ export function KpiCard({
   className?: string;
 }) {
   const t = TONE[tone];
-  const points = React.useMemo(
-    () => series ?? seedSeries(typeof value === "number" ? value : 7, 16, 30, 22),
-    [series, value],
-  );
+  const points = series && series.length >= 2 ? series : null;
 
   const inner = (
     <>
@@ -89,7 +86,7 @@ export function KpiCard({
             </span>
           ) : null}
         </div>
-        <Sparkline data={points} height={sparkHeight} tone={`hsl(${t.hsl})`} />
+        {points ? <Sparkline data={points} height={sparkHeight} tone={`hsl(${t.hsl})`} /> : null}
       </div>
 
       <div className="mt-2 flex items-center justify-between gap-2">

@@ -20,12 +20,17 @@ _COMPANY_SUFFIXES = (
 
 _PUNCT_RE = re.compile(r"[^\w\s&/-]", re.UNICODE)
 _WS_RE = re.compile(r"\s+")
+# Excel stores in-cell line breaks as literal XML character references; a naive
+# numeric-entity decode leaves ``_x000D_`` / ``_x000A_`` markers in the text.
+# They are formatting, not data, so every source cell is scrubbed of them.
+_CONTROL_MARKER_RE = re.compile(r"_x00[0-9A-Fa-f]{2}_")
 
 
 def clean_text(value: str | None) -> str | None:
     if value is None:
         return None
     text = unicodedata.normalize("NFKC", str(value))
+    text = _CONTROL_MARKER_RE.sub(" ", text)
     text = text.replace("\u00a0", " ").replace("\u2013", "-").replace("\u2014", "-")
     text = text.replace("\u2018", "'").replace("\u2019", "'").replace("\u201c", '"').replace("\u201d", '"')
     text = _WS_RE.sub(" ", text).strip()

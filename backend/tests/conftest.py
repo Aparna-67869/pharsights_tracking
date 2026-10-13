@@ -20,6 +20,9 @@ os.environ.setdefault("ENVIRONMENT", "test")
 os.environ.setdefault("VECTOR_BACKEND", "numpy")
 os.environ.setdefault("JWT_SECRET", "test-secret-not-for-production")
 os.environ.setdefault("ALERT_MIN_PRIORITY_TO_NOTIFY", "40")
+# The suite exercises the full multi-account surface; the single-account
+# lock-down is covered explicitly in test_api_smoke.py.
+os.environ["RESTRICT_LOGIN"] = "false"
 
 from fastapi.testclient import TestClient
 from sqlalchemy import delete, select

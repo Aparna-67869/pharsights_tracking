@@ -133,3 +133,15 @@ def trigger_pipeline(
 
     background.add_task(_run)
     return {"status": "accepted", "message": "Pipeline run started in the background"}
+
+
+@pipeline_router.get("/scheduler", summary="Automatic monitoring schedule status")
+def scheduler_status() -> dict:
+    """Report the automatic monitoring cadence and its last sweep.
+
+    The platform runs the pipeline on its own; this is how the Operations page
+    shows users that monitoring is live rather than waiting to be triggered.
+    """
+    from app.services import scheduler
+
+    return scheduler.status()

@@ -15,9 +15,15 @@ cd backend && ENVIRONMENT=development JWT_SECRET=demo-secret-please-replace \
   python3 -m uvicorn app.main:app --host 0.0.0.0 --port 12001
 
 # Frontend (port 12000)
-cd frontend && NEXT_PUBLIC_API_BASE_URL=https://work-2-<host>/api/v1 \
-  npx next start -p 12000
+# NEXT_PUBLIC_API_BASE_URL is the API ORIGIN ONLY - the client appends /api/v1 itself
+cd frontend && NEXT_PUBLIC_API_BASE_URL=https://work-2-<host> \
+  npm run build && npx next start -p 12000
 ```
+
+Note: `NEXT_PUBLIC_API_BASE_URL` is baked into the client bundle at **build** time,
+so it must be set for `npm run build` (not just at `next start`). Setting it to a
+value that already ends in `/api/v1` produces doubled paths like
+`/api/v1/api/v1/auth/token` and a 404 on login.
 
 Tests: `cd backend && python3 -m pytest -q` (22 pass). Frontend typecheck: `npm run typecheck`.
 
@@ -27,6 +33,12 @@ Tests: `cd backend && python3 -m pytest -q` (22 pass). Frontend typecheck: `npm 
 - `VIEWER` holds `{"read:data"}` only. Every module endpoint (ftf, pte, pde, orange-book,
   dashboard, changes, alerts, sources, graph, pipeline runs) requires `read:data`.
   The copilot (`/copilot/ask`) requires a higher scope and correctly 403s for viewers.
+  The 403 body is `{"code":"forbidden","message":"Insufficient permissions for this
+  operation","details":{"required_scope":"use:copilot"}}`. Do NOT loosen this to make
+  the 403 disappear — `viewer` has `read:data` only, by design. Instead the UI gates on
+  `use:copilot`: the sidebar hides the nav item, the Command Center "Ask the Copilot"
+  CTA is disabled, and `/copilot` renders a "Copilot access required" panel. Roles with
+  `use:copilot`: admin, analyst, regulatory_affairs, ip_counsel, executive.
 - Do NOT reintroduce a `read:public` scope — it silently 403s every module page.
 - Frontend gates action controls on scopes via `useAuth().hasScope(...)` (see
   `frontend/src/components/layout/sidebar.tsx` and the `Run pipeline now` button in
@@ -34,8 +46,15 @@ Tests: `cd backend && python3 -m pytest -q` (22 pass). Frontend typecheck: `npm 
 
 ## Data / pipeline notes
 
-- The live pipeline really fetches FDA/USPTO (e.g. `fda_ftf_ppiv_excel` → ~1,640 FTF rows,
-  `fda_ftf_ppiv_pdf`), stores versioned snapshots, diffs them and writes audit rows.
+- The live pipeline really fetches FDA/USPTO, stores versioned snapshots, diffs them
+  and writes audit rows.
+- FTF **facts come from the official FDA Paragraph IV PDF** (`fda_ftf_ppiv_pdf`,
+  `fda.gov/media/166048/download`) — this is `MODULE_SOURCE["ftf"]`, so `/ftf/source`,
+  `/sources/ftf/document` and `/comparison/ftf` all resolve to the PDF. The Excel
+  companion (`fda_ftf_ppiv_excel`) is still collected and versioned for cross-validation
+  but is intentionally **not** in the pipeline `LOADERS`; loading both would store every
+  filing twice under different `source_code`s. Both parse to the same 1,647 rows / keys.
+  `scripts/reingest_ftf.py` re-syncs the PDF facts and purges stale Excel-sourced rows.
 - FTF records are drugs + RLD/NDA + dates from the **FDA published Paragraph IV list**.
   That source has no public ANDA applicant / patent number, so those remain `None` —
   this is faithful to the source, not a parse bug.
@@ -65,11 +84,16 @@ The SOP mandates that each module mirrors what the analyst sees on the source pa
   `admin/admin@pharma-intel.local AdminPass!234`, `analyst@… AnalystPass!234`,
   `ra@… RAPass!234`, `ip@… IPPass!234`, `exec@… ExecPass!234`,
   `viewer@… ViewerPass!234`.
-- Self-registration: `POST /auth/register` (frontend "Create an account" on the
-  login page). It always grants the least-privilege `viewer` role. Controlled by
-  `settings.allow_self_registration` (env `ALLOW_SELF_REGISTRATION`, default true;
-  set false in production). Email validation is deliberately pragmatic so the
-  internal `@pharma-intel.local` domain (which strict validators reject) works.
+- Self-registration: `POST /auth/register` (admin-only; there is no public
+  sign-up page in the UI). It always grants the least-privilege `viewer` role.
+  Email validation is deliberately pragmatic so the internal
+  `@pharma-intel.local` domain (which strict validators reject) works.
+- **Single-account lock-down (default on).** `RESTRICT_LOGIN=true` (env, default
+  true) restricts authentication to `ALLOWED_LOGIN_EMAIL` (default
+  `admin@pharma-intel.local`) and closes account creation entirely — even to
+  administrators. Any other email is refused with 401; register returns 403.
+  Non-authorized attempts are audited as `login_blocked`. Set
+  `RESTRICT_LOGIN=false` to restore the normal multi-role accounts.
 
 ## Enterprise shell & design system
 
@@ -112,3 +136,61 @@ The SOP mandates that each module mirrors what the analyst sees on the source pa
   per drug (N+1) and discarded it; it now joins per-drug Orange Book products/patents.
 - Ruff: `cd backend && ruff check app tests`. E501 long lines are pre-existing; the
   important classes are F821/F841/F601 (undefined names / dead vars / dup keys).
+
+## SQLite concurrency (dev backend)
+
+- SQLite allows one writer. The engine sets `PRAGMA busy_timeout=30000`, `WAL`,
+  `foreign_keys=ON`, `synchronous=NORMAL` on every connect.
+- `pipeline.run_pipeline` commits between phases and between sources, so the
+  write lock is only held for short per-source loads, never for the whole run.
+- Do NOT add a global `BEGIN IMMEDIATE` (via `isolation_level=None` + a `begin`
+  event). It makes reads take the write lock, deadlocking reflection
+  (`reconcile_schema`) and long tests. The correct fix for the "can't upgrade a
+  read snapshot to a write" error is to keep telemetry writes (`audit` rows,
+  `last_login_at`) off the request session, on a retrying session.
+- `db.session.resilient_write(op)` runs `op` in a fresh session and retries lock
+  errors. Use it for best-effort writes that must not fail the request. Never
+  call it from inside a transaction that already holds the write lock (SQLite
+  cannot have two writers) — interior writes must share the caller's session.
+- The dev SQLite pool is sized `db_pool_size`+`db_max_overflow` (30), because a
+  request may briefly hold two sessions (request + telemetry write).
+- Route order: a literal route (`/changes/export`) MUST be declared before a
+  same-prefix dynamic route (`/changes/{change_id}`), or the dynamic one
+  swallows it. See `intelligence.py`; guarded by a smoke test.
+
+## Data integrity: real data only (hard rule)
+
+- Every field shown must come from a real source document (FDA FTF PDF/Excel,
+  USPTO PTE, FDA PDE, Orange Book). No mock/fabricated/guessed values.
+- A field that a source does not carry MUST stay NULL. Do NOT infer it from
+  another field. `graph/resolve.infer_therapy_area` was the violation — it
+  guessed therapy areas from drug-name suffixes (`nib`/`mab` -> Oncology) and
+  mislabeled drugs; it now returns `None` and the 952 polluted rows were purged.
+  FDA sources have no therapy-area column, so `drugs.therapy_area` is NULL and
+  therapy-area charts are legitimately empty.
+- `patent_family_distribution` attributes listed patents to the Orange Book
+  product's applicant (the only real owner signal in the source), not to a
+  patent assignee the source lacks.
+- When adding a derived chart/metric, confirm each value traces to a source
+  column. If it cannot, drop the chart rather than invent the dimension.
+- To re-verify FTF fidelity: parse the live PDF (`parsers.ftf.parse_ftf_pdf`)
+  and compare against `ftf_records`; counts and drug|NDA keys must match.
+
+## Automatic monitoring (scheduler)
+
+- `services/scheduler.py` runs the real `run_pipeline` on a cadence in a daemon
+  thread so the platform monitors with no user action; status is exposed at
+  `GET /pipeline/scheduler` and shown on the Sources page. Local/dev equivalent
+  of the Airflow DAGs; disable with `SCHEDULER_ENABLED=false`. A file lock
+  serialises it against the API-triggered run path.
+- Alert email uses `email_service.deliver`, which picks implicit TLS (465) vs
+  STARTTLS (587) by port so any relay works. `serve.sh` passes `SMTP_*`,
+  `TEAMS_WEBHOOK_URL`, `SLACK_WEBHOOK_URL` and `SCHEDULER_INTERVAL_MINUTES`
+  through from the environment.
+
+## Frontend static serving (standalone)
+
+- `scripts/serve.sh` must `rm -rf` the standalone `.next/static` and `public`
+  before copying, otherwise a rebuild leaves stale chunks and the server keeps
+  serving the old bundle (its manifest points at new hashes, so pages 404 their
+  chunks).

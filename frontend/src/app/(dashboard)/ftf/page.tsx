@@ -1,21 +1,29 @@
 "use client";
 
 import * as React from "react";
-import { useQuery } from "@tanstack/react-query";
-import { FileText, GitCompareArrows, Info } from "lucide-react";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { CloudDownload, GitCompareArrows, Info, RefreshCw } from "lucide-react";
 import { api } from "@/lib/api";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { Input, Select } from "@/components/ui/input";
 import { DataTable, type Column } from "@/components/tables/data-table";
-import { AreaTrend } from "@/components/charts/charts";
+import { AreaTrend, BarSeries } from "@/components/charts/charts";
 import { KpiCard } from "@/components/common/kpi-card";
-import { fmtDate, fmtNumber, daysUntil } from "@/lib/format";
+import { OfficialSourceBanner } from "@/components/common/official-source-banner";
+import { SourceProvenance } from "@/components/common/source-provenance";
+import { SourceCells } from "@/components/common/source-cells";
+import { fmtDate, fmtNumber, daysUntil, rawValue } from "@/lib/format";
 import { useDebounced } from "@/hooks/use-debounce";
+import { useAuth } from "@/components/providers/auth-provider";
 import type { FtfRecord } from "@/types/api";
 
 const STATUS_OPTIONS = ["", "eligible", "extinguished", "deferred"];
 
 export default function FtfPage() {
+  const queryClient = useQueryClient();
+  const { hasScope } = useAuth();
+  const canRun = hasScope("run:pipeline");
   const [page, setPage] = React.useState(1);
   const [search, setSearch] = React.useState("");
   const [status, setStatus] = React.useState("");
@@ -39,9 +47,21 @@ export default function FtfPage() {
     queryFn: () => api.ftfRecords(params),
   });
   const summary = useQuery({ queryKey: ["ftf-summary"], queryFn: () => api.ftfSummary() });
-  const source = useQuery({ queryKey: ["ftf-source"], queryFn: () => api.ftfSource() });
   const trend = useQuery({ queryKey: ["ftf-trend"], queryFn: () => api.ftfMonthlyTrend(48) });
-  const areas = useQuery({ queryKey: ["ftf-areas"], queryFn: () => api.ftfTherapyAreas(12) });
+
+  // "Refresh" must actually re-sync from FDA, not just re-read our own API.
+  const resync = useMutation({
+    mutationFn: () => api.triggerPipeline({ modules: ["ftf"] }),
+    onSuccess: () => {
+      setTimeout(() => {
+        void queryClient.invalidateQueries({ queryKey: ["ftf-records"] });
+        void queryClient.invalidateQueries({ queryKey: ["ftf-summary"] });
+        void queryClient.invalidateQueries({ queryKey: ["ftf-trend"] });
+        void queryClient.invalidateQueries({ queryKey: ["module-source", "ftf"] });
+        void queryClient.invalidateQueries({ queryKey: ["pipeline-runs"] });
+      }, 2500);
+    },
+  });
 
   const columns: Column<FtfRecord>[] = [
     {
@@ -49,15 +69,22 @@ export default function FtfPage() {
       header: "Drug name",
       render: (row) => (
         <div className="min-w-0">
-          <p className="truncate font-medium">{row.drug_name}</p>
+          <p className="truncate font-medium">{rawValue(row, "Drug Name", "drug_name") ?? "—"}</p>
           <p className="truncate text-[11px] text-muted-foreground">
-            {[row.dosage_form, row.strength].filter(Boolean).join(" · ") || "—"}
+            {[rawValue(row, "Dosage Form", "dosage_form"), rawValue(row, "Strength", "strength")]
+              .filter(Boolean)
+              .join(" · ") || "—"}
           </p>
         </div>
       ),
     },
-    { key: "nda_number", header: "NDA / RLD", render: (row) => <span className="tabular-nums">{row.nda_number ?? row.rld_nda ?? "—"}</span> },
-    { key: "rld_brand_name", header: "RLD brand", render: (row) => row.rld_brand_name ?? "—" },
+    {
+      key: "rld_nda",
+      header: "RLD / NDA",
+      render: (row) => (
+        <span className="tabular-nums">{rawValue(row, "RLD/NDA", "rld_nda") ?? "—"}</span>
+      ),
+    },
     {
       key: "number_of_andas",
       header: "ANDAs",
@@ -93,7 +120,9 @@ export default function FtfPage() {
         const days = daysUntil(row.last_qualifying_patent_expiry);
         return (
           <div>
-            <span className="tabular-nums">{fmtDate(row.last_qualifying_patent_expiry)}</span>
+            <span className="tabular-nums">
+              {rawValue(row, "Expiration Date of Last Qualifying Patent", "last_qualifying_patent_expiry") ?? "—"}
+            </span>
             {days != null ? (
               <span className={days <= 730 ? "ml-1 text-[10px] text-warning-foreground dark:text-amber-300" : "ml-1 text-[10px] text-muted-foreground"}>
                 {days > 0 ? `${(days / 365).toFixed(1)}y` : "expired"}
@@ -107,41 +136,36 @@ export default function FtfPage() {
 
   return (
     <div className="space-y-5">
-      <header>
-        <h1 className="flex items-center gap-2 text-xl font-semibold">
-          <GitCompareArrows className="h-5 w-5 text-primary" /> First-to-File (Paragraph IV)
-        </h1>
-        <p className="mt-1 text-sm text-muted-foreground">
-          FDA patent certifications with 180-day exclusivity status, automatically version-diffed on every
-          release of the FDA Paragraph IV list.
-        </p>
-        {source.data?.publication_date ? (
-          <div className="mt-3 inline-flex flex-wrap items-center gap-x-3 gap-y-1 rounded-lg border border-border/70 bg-muted/30 px-3 py-2 text-xs">
-            <span className="flex items-center gap-1.5 font-medium">
-              <FileText className="h-3.5 w-3.5 text-primary" />
-              Paragraph IV Certifications List
-            </span>
-            <span className="text-muted-foreground">
-              Published <strong className="font-semibold text-foreground">
-                {source.data.publication_label ?? fmtDate(source.data.publication_date)}
-              </strong>
-            </span>
-            <span className="text-muted-foreground">
-              {fmtNumber(source.data.record_count ?? 0)} certifications · source version v{source.data.version ?? 1}
-            </span>
-            {source.data.url ? (
-              <a
-                href={source.data.url}
-                target="_blank"
-                rel="noreferrer"
-                className="text-primary underline-offset-2 hover:underline"
-              >
-                View on FDA.gov
-              </a>
-            ) : null}
-          </div>
-        ) : null}
+      <header className="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
+        <div>
+          <h1 className="flex items-center gap-2 text-xl font-semibold">
+            <GitCompareArrows className="h-5 w-5 text-primary" /> First-to-File (Paragraph IV)
+          </h1>
+          <p className="mt-1 text-sm text-muted-foreground">
+            FDA patent certifications with 180-day exclusivity status, automatically version-diffed on every
+            release of the FDA Paragraph IV list.
+          </p>
+        </div>
+        <div className="flex flex-wrap items-center gap-2">
+          <Button variant="outline" onClick={() => void records.refetch()} disabled={records.isFetching}>
+            <RefreshCw className={records.isFetching ? "h-4 w-4 animate-spin" : "h-4 w-4"} /> Reload view
+          </Button>
+          {canRun ? (
+            <Button
+              onClick={() => resync.mutate()}
+              disabled={resync.isPending}
+              title="Re-download the latest FDA list and diff it against the previous snapshot"
+            >
+              <CloudDownload className={resync.isPending ? "h-4 w-4 animate-pulse" : "h-4 w-4"} />
+              {resync.isPending ? "Syncing from FDA…" : "Sync from FDA"}
+            </Button>
+          ) : null}
+        </div>
       </header>
+
+      <OfficialSourceBanner module="ftf" />
+
+      <SourceProvenance module="ftf" />
 
       <section className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
         {summary.data ? (
@@ -166,14 +190,18 @@ export default function FtfPage() {
             />
           </div>
         ) : null}
-        {areas.data ? (
-          <AreaTrend
-            title="Therapy areas"
-            subtitle="Filings by therapy area"
-            data={areas.data as unknown as Array<Record<string, string | number>>}
-            xKey="therapy_area"
-            yKey="count"
-            color="hsl(142 69% 50%)"
+        {summary.data ? (
+          <BarSeries
+            title="180-day exclusivity outcome"
+            subtitle="Filings by status in the current FDA list"
+            data={[
+              { status: "Eligible", count: summary.data.eligible_180_day },
+              { status: "Extinguished", count: summary.data.extinguished_180_day },
+              { status: "Deferred", count: summary.data.deferred },
+            ]}
+            xKey="status"
+            bars={[{ key: "count", label: "Filings" }]}
+            height={260}
           />
         ) : null}
       </section>
@@ -195,6 +223,7 @@ export default function FtfPage() {
         searchPlaceholder="Search drug, brand or NDA…"
         exportPath="/ftf/export"
         exportParams={{ q: debouncedSearch || undefined, status: status || undefined }}
+        renderDetail={(row) => <SourceCells raw={row.raw} />}
         filters={
           <>
             <Select

@@ -74,6 +74,68 @@ def diff_between_documents(session: Session, before_id: str, after_id: str) -> d
     }
 
 
+def module_comparison(session: Session, module: str, *, limit: int = 200) -> dict[str, Any]:
+    """Previous vs current version for a module, with the detected deltas.
+
+    Resolves the two most recent documents of the module's backing source and
+    reports added / updated / removed records between them — the screen the SOP
+    calls a "version comparison"."""
+    from app.services.document_actions import MODULE_SOURCE
+
+    source_code = MODULE_SOURCE.get(module)
+    if source_code is None:
+        return {"error": f"unknown module {module!r}"}
+
+    documents = list(
+        session.scalars(
+            select(SourceDocument)
+            .where(SourceDocument.source_code == source_code)
+            .order_by(SourceDocument.version.desc())
+            .limit(2)
+        )
+    )
+    if not documents:
+        return {"module": module, "source_code": source_code, "current": None, "previous": None}
+
+    current = documents[0]
+    previous = documents[1] if len(documents) > 1 else None
+    changes = changes_for_document(session, current.id, limit=limit)
+    by_type: dict[str, list[dict[str, Any]]] = {"added": [], "removed": [], "updated": []}
+    for change in changes:
+        if change.change_type in by_type:
+            by_type[change.change_type].append(_change_brief(change))
+
+    def _doc(document: SourceDocument | None) -> dict[str, Any] | None:
+        if document is None:
+            return None
+        return {
+            "id": document.id,
+            "version": document.version,
+            "filename": document.filename,
+            "publication_date": document.publication_date.isoformat() if document.publication_date else None,
+            "publication_label": document.publication_label,
+            "record_count": document.record_count,
+            "fetched_at": document.fetched_at.isoformat() if document.fetched_at else None,
+            "download_url": document.url,
+        }
+
+    return {
+        "module": module,
+        "source_code": source_code,
+        "previous": _doc(previous),
+        "current": _doc(current),
+        "summary": {
+            "added": len(by_type["added"]),
+            "removed": len(by_type["removed"]),
+            "updated": len(by_type["updated"]),
+            "net": len(by_type["added"]) - len(by_type["removed"]),
+        },
+        "added": by_type["added"],
+        "removed": by_type["removed"],
+        "updated": by_type["updated"],
+    }
+
+
 def module_change_counts(session: Session, *, days: int = 30) -> dict[str, dict[str, int]]:
     from datetime import timedelta
 

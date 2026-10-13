@@ -23,17 +23,35 @@ run_api() {
   export ENVIRONMENT=development
   export JWT_SECRET="${JWT_SECRET:-demo-secret-please-replace}"
   export CORS_ORIGINS="[\"$FE_ORIGIN\",\"$BE_ORIGIN\",\"http://localhost:$WEB_PORT\"]"
+  # Alert delivery is configured per deployment. Everything is optional; an
+  # unconfigured channel records a skip instead of breaking the pipeline.
+  export SMTP_HOST="${SMTP_HOST:-}"
+  export SMTP_PORT="${SMTP_PORT:-587}"
+  export SMTP_USERNAME="${SMTP_USERNAME:-}"
+  export SMTP_PASSWORD="${SMTP_PASSWORD:-}"
+  export SMTP_FROM="${SMTP_FROM:-pharma-intel@example.com}"
+  export SMTP_USE_TLS="${SMTP_USE_TLS:-true}"
+  export ALERT_EMAIL_RECIPIENTS="${ALERT_EMAIL_RECIPIENTS:-}"
+  export TEAMS_WEBHOOK_URL="${TEAMS_WEBHOOK_URL:-}"
+  export SLACK_WEBHOOK_URL="${SLACK_WEBHOOK_URL:-}"
+  export SCHEDULER_INTERVAL_MINUTES="${SCHEDULER_INTERVAL_MINUTES:-360}"
   exec python3 -m uvicorn app.main:app --host 0.0.0.0 --port "$API_PORT"
 }
 
 run_web() {
   cd "$ROOT/frontend" || exit 1
+  # Baked into the client bundle at build time; keep it pointed at the public
+  # API origin so the browser never falls back to localhost:8000.
+  export NEXT_PUBLIC_API_BASE_URL="${NEXT_PUBLIC_API_BASE_URL:-$BE_ORIGIN}"
   # This build uses output: standalone, so serve it with the standalone server
   # (next start does not support standalone and exits).
   local dir="$ROOT/frontend/.next/standalone"
   mkdir -p "$dir/.next"
-  [ -d "$dir/.next/static" ] || cp -r "$ROOT/frontend/.next/static" "$dir/.next/static"
-  [ -d "$dir/public" ] || cp -r "$ROOT/frontend/public" "$dir/public"
+  # Always refresh: a rebuild leaves stale chunks in the standalone dir, which
+  # the server would otherwise keep serving (its manifest points at new hashes).
+  rm -rf "$dir/.next/static" "$dir/public"
+  cp -r "$ROOT/frontend/.next/static" "$dir/.next/static"
+  cp -r "$ROOT/frontend/public" "$dir/public"
   cd "$dir" || exit 1
   PORT="$WEB_PORT" HOSTNAME=0.0.0.0 exec node server.js
 }

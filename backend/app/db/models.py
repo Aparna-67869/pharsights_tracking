@@ -238,6 +238,7 @@ class ActiveMoiety(Base, UUIDPrimaryKey, TimestampMixin):
     date_issued: Mapped[date | None] = mapped_column(Date, nullable=True, index=True)
     approval_year: Mapped[int | None] = mapped_column(Integer, nullable=True, index=True)
     status: Mapped[str] = mapped_column(String(32), default="approved")
+    raw: Mapped[dict[str, Any]] = mapped_column(JSON, default=dict)
     drug_id: Mapped[str | None] = mapped_column(String(36), ForeignKey("drugs.id"), nullable=True)
     content_hash: Mapped[str] = mapped_column(String(64), index=True)
     first_seen_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
@@ -304,6 +305,9 @@ class FtfRecord(Base, UUIDPrimaryKey, TimestampMixin):
     certification_type: Mapped[str] = mapped_column(String(32), default="Paragraph IV")
     applicant: Mapped[str | None] = mapped_column(String(512), nullable=True, index=True)
     patent_number: Mapped[str | None] = mapped_column(String(64), nullable=True, index=True)
+    # Exact text as published in the source row. The typed columns above hold
+    # forms safe for joins/lookups; the UI must always render these raw values.
+    raw: Mapped[dict[str, Any]] = mapped_column(JSON, default=dict)
     status: Mapped[str] = mapped_column(String(32), default="active")
     drug_id: Mapped[str | None] = mapped_column(String(36), ForeignKey("drugs.id"), nullable=True)
     patent_id: Mapped[str | None] = mapped_column(String(36), ForeignKey("patents.id"), nullable=True)
@@ -340,6 +344,8 @@ class PteApplication(Base, UUIDPrimaryKey, TimestampMixin):
     generic_name: Mapped[str | None] = mapped_column(String(512), nullable=True)
     designated_number: Mapped[str | None] = mapped_column(String(128), nullable=True)
     sponsor_name: Mapped[str | None] = mapped_column(String(512), nullable=True, index=True)
+    application_number_normalized: Mapped[str | None] = mapped_column(String(64), nullable=True, index=True)
+    raw: Mapped[dict[str, Any]] = mapped_column(JSON, default=dict)
     status: Mapped[str] = mapped_column(String(48), default="filed")
     drug_id: Mapped[str | None] = mapped_column(String(36), ForeignKey("drugs.id"), nullable=True)
     patent_id: Mapped[str | None] = mapped_column(String(36), ForeignKey("patents.id"), nullable=True)
@@ -369,6 +375,7 @@ class PteCertificate(Base, UUIDPrimaryKey, TimestampMixin):
     extension_days: Mapped[int | None] = mapped_column(Integer, nullable=True)
     extension_text: Mapped[str | None] = mapped_column(String(64), nullable=True)
     granted_date: Mapped[date | None] = mapped_column(Date, nullable=True, index=True)
+    raw: Mapped[dict[str, Any]] = mapped_column(JSON, default=dict)
     status: Mapped[str] = mapped_column(String(32), default="granted")
     drug_id: Mapped[str | None] = mapped_column(String(36), ForeignKey("drugs.id"), nullable=True)
     patent_id: Mapped[str | None] = mapped_column(String(36), ForeignKey("patents.id"), nullable=True)
@@ -432,6 +439,7 @@ class OrangeBookProduct(Base, UUIDPrimaryKey, TimestampMixin):
     rld: Mapped[bool | None] = mapped_column(Boolean, nullable=True)
     rs: Mapped[bool | None] = mapped_column(Boolean, nullable=True)
     product_type: Mapped[str | None] = mapped_column(String(8), nullable=True)  # RX|OTC|DISCN
+    raw: Mapped[dict[str, Any]] = mapped_column(JSON, default=dict)
     drug_id: Mapped[str | None] = mapped_column(String(36), ForeignKey("drugs.id"), nullable=True)
     sponsor_id: Mapped[str | None] = mapped_column(String(36), ForeignKey("sponsors.id"), nullable=True)
     content_hash: Mapped[str] = mapped_column(String(64), index=True)

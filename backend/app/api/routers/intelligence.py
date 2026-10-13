@@ -49,6 +49,18 @@ def list_changes(
     return Page.build([DetectedChangeOut.model_validate(r) for r in rows], total, page, page_size)
 
 
+@router.get("/changes/export", summary="Export the change history as CSV")
+def export_changes(session: SessionDep, module: str | None = None, include_baseline: bool = False):
+    stmt = select(DetectedChange)
+    if module:
+        stmt = stmt.where(DetectedChange.module == module)
+    if not include_baseline:
+        stmt = stmt.where(DetectedChange.is_baseline.is_(False))
+    rows = list(session.scalars(stmt.order_by(desc(DetectedChange.detected_at)).limit(50000)))
+    columns = ["detected_at", "module", "entity_type", "change_type", "source_key", "is_baseline"]
+    return csv_response(rows, columns, filename="change_history.csv")
+
+
 @router.get("/changes/{change_id}", response_model=DetectedChangeOut, summary="Get one detected change")
 def get_change(change_id: str, session: SessionDep) -> DetectedChangeOut:
     row = session.get(DetectedChange, change_id)
@@ -163,15 +175,3 @@ def list_audit_logs(
         )
     )
     return Page.build([AuditLogOut.model_validate(r) for r in rows], total, page, page_size)
-
-
-@router.get("/changes/export", summary="Export the change history as CSV")
-def export_changes(session: SessionDep, module: str | None = None, include_baseline: bool = False):
-    stmt = select(DetectedChange)
-    if module:
-        stmt = stmt.where(DetectedChange.module == module)
-    if not include_baseline:
-        stmt = stmt.where(DetectedChange.is_baseline.is_(False))
-    rows = list(session.scalars(stmt.order_by(desc(DetectedChange.detected_at)).limit(50000)))
-    columns = ["detected_at", "module", "entity_type", "change_type", "source_key", "is_baseline"]
-    return csv_response(rows, columns, filename="change_history.csv")

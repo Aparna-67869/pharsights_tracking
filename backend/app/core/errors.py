@@ -58,9 +58,19 @@ class CollectorError(PharmaError):
     code = "collector_error"
 
 
+class ServiceUnavailableError(PharmaError):
+    status_code = status.HTTP_503_SERVICE_UNAVAILABLE
+    code = "service_unavailable"
+
+
 class ParserError(PharmaError):
     status_code = status.HTTP_422_UNPROCESSABLE_ENTITY
     code = "parser_error"
+
+
+class ValidationError(PharmaError):
+    status_code = status.HTTP_422_UNPROCESSABLE_ENTITY
+    code = "validation_error"
 
 
 def register_exception_handlers(app: FastAPI) -> None:

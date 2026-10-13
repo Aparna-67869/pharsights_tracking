@@ -11,7 +11,10 @@ import { Select } from "@/components/ui/input";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { DataTable, type Column } from "@/components/tables/data-table";
 import { KpiCard } from "@/components/common/kpi-card";
-import { fmtDate, fmtDateTime, fmtNumber } from "@/lib/format";
+import { SourceProvenance } from "@/components/common/source-provenance";
+import { OfficialSourceBanner } from "@/components/common/official-source-banner";
+import { SourceCells } from "@/components/common/source-cells";
+import { fmtDate, fmtDateTime, fmtNumber, rawValue } from "@/lib/format";
 import { useDebounced } from "@/hooks/use-debounce";
 import type { OrangeBookPatent, OrangeBookProduct, OrangeBookSupplement } from "@/types/api";
 
@@ -29,6 +32,8 @@ export default function OrangeBookPage() {
           Approved drug products with therapeutic equivalence evaluations, patent listings and exclusivity
           grants — plus monthly supplement version comparison.
         </p>
+        <OfficialSourceBanner module="orange_book" />
+        <SourceProvenance module="orange_book" />
       </header>
 
       <section className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
@@ -106,8 +111,8 @@ function ProductsTable() {
       header: "Product",
       render: (row) => (
         <div>
-          <p className="font-medium">{row.trade_name ?? "—"}</p>
-          <p className="text-[11px] text-muted-foreground">{row.ingredient ?? "—"}</p>
+          <p className="font-medium">{rawValue(row, "Trade_Name", "trade_name") ?? "—"}</p>
+          <p className="text-[11px] text-muted-foreground">{rawValue(row, "Ingredient", "ingredient") ?? "—"}</p>
         </div>
       ),
     },
@@ -116,14 +121,14 @@ function ProductsTable() {
       header: "Application",
       render: (row) => (
         <span className="font-mono text-xs">
-          {row.appl_type}
-          {row.appl_no}
+          {rawValue(row, "Appl_Type", "appl_type") ?? ""}
+          {rawValue(row, "Appl_No", "appl_no") ?? ""}
         </span>
       ),
     },
-    { key: "applicant_full_name", header: "Applicant", render: (row) => row.applicant_full_name ?? row.applicant ?? "—" },
-    { key: "strength", header: "Strength", render: (row) => row.strength ?? "—" },
-    { key: "dosage_form_route", header: "Form / route", render: (row) => row.dosage_form_route ?? "—" },
+    { key: "applicant_full_name", header: "Applicant", render: (row) => rawValue(row, "Applicant_Full_Name", "applicant_full_name") ?? rawValue(row, "Applicant", "applicant") ?? "—" },
+    { key: "strength", header: "Strength", render: (row) => rawValue(row, "Strength", "strength") ?? "—" },
+    { key: "dosage_form_route", header: "Form / route", render: (row) => rawValue(row, "DF;Route", "dosage_form_route") ?? "—" },
     {
       key: "te_code",
       header: "TE code",
@@ -161,6 +166,7 @@ function ProductsTable() {
       searchPlaceholder="Search trade name or ingredient…"
       exportPath="/orange-book/export/products"
       exportParams={{ appl_type: applType || undefined }}
+      renderDetail={(row) => <SourceCells raw={row.raw} />}
       filters={
         <>
           <Select value={applType} onChange={(event) => setApplType(event.target.value)} className="h-8 w-36 text-xs">

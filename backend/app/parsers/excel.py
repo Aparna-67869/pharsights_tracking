@@ -134,7 +134,13 @@ def rows_to_dicts(
 
 
 def pick(record: dict[str, Any], *candidates: str, default: Any = None) -> Any:
-    """Fetch the first matching key, allowing partial (substring) header matches."""
+    """Fetch the first matching key, allowing partial (substring) header matches.
+
+    Matching is tolerant of the ways a source may garble a header: case, runs of
+    whitespace, and words that got joined. The FDA Excel export, for instance,
+    emits ``DATE OF FIRST APPLICANTAPPROVAL`` where the PDF says
+    ``DATE OF FIRST APPLICANT APPROVAL``.
+    """
     for candidate in candidates:
         key = _normalize_header(candidate)
         if key in record:
@@ -143,8 +149,9 @@ def pick(record: dict[str, Any], *candidates: str, default: Any = None) -> Any:
                 return value
     for candidate in candidates:
         key = _normalize_header(candidate)
+        squashed = key.replace(" ", "")
         for header, value in record.items():
-            if key and key in header:
+            if key and (key in header or squashed in header.replace(" ", "")):
                 if clean_text(str(value)) is not None:
                     return value
     return default

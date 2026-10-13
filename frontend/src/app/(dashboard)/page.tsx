@@ -23,6 +23,7 @@ import {
 } from "lucide-react";
 import { api } from "@/lib/api";
 import { Button } from "@/components/ui/button";
+import { useAuth } from "@/components/providers/auth-provider";
 import { Badge } from "@/components/ui/badge";
 import { Panel } from "@/components/common/panel";
 import { KpiCard } from "@/components/common/kpi-card";
@@ -42,6 +43,8 @@ import { cn } from "@/lib/utils";
 export default function CommandCenterPage() {
   const { connected, lastEvent } = useRealtime();
   const router = useRouter();
+  const { hasScope } = useAuth();
+  const canUseCopilot = hasScope("use:copilot");
   const now = new Date().toISOString();
 
   const kpis = useQuery({ queryKey: ["kpis"], queryFn: () => api.kpis(), refetchInterval: 30_000 });
@@ -103,7 +106,7 @@ export default function CommandCenterPage() {
             </Button>
           </Link>
           <Link href="/copilot">
-            <Button size="sm">
+            <Button size="sm" disabled={!canUseCopilot} title={canUseCopilot ? "Ask the Copilot" : "Your role does not include copilot access"}>
               <Sparkles className="h-3.5 w-3.5" /> Ask the Copilot
             </Button>
           </Link>
@@ -122,7 +125,6 @@ export default function CommandCenterPage() {
               hint="Distinct products across all sources"
               icon={<Layers className="h-3.5 w-3.5 text-primary" />}
               tone="primary"
-              trend={6}
               updatedAt={now}
               onClick={() => router.push("/search")}
             />
@@ -132,7 +134,6 @@ export default function CommandCenterPage() {
               hint="Near-term generic-entry window"
               icon={<CalendarClock className="h-3.5 w-3.5 text-warning" />}
               tone="warning"
-              trend={-3}
               updatedAt={now}
             />
             <KpiCard
@@ -141,7 +142,6 @@ export default function CommandCenterPage() {
               hint="Paragraph IV filings (30 days)"
               icon={<GitCompareArrows className="h-3.5 w-3.5 text-primary" />}
               tone="primary"
-              trend={12}
               updatedAt={now}
             />
             <KpiCard
@@ -149,7 +149,6 @@ export default function CommandCenterPage() {
               value={k.new_pte_applications}
               hint="USPTO extensions filed (30 days)"
               icon={<ShieldCheck className="h-3.5 w-3.5 text-primary" />}
-              trend={4}
               updatedAt={now}
             />
             <KpiCard
@@ -158,7 +157,6 @@ export default function CommandCenterPage() {
               hint="Certificates issued (30 days)"
               icon={<ShieldCheck className="h-3.5 w-3.5 text-success" />}
               tone="success"
-              trend={9}
               updatedAt={now}
             />
             <KpiCard
@@ -166,7 +164,6 @@ export default function CommandCenterPage() {
               value={k.new_active_moieties}
               hint="PDE additions (30 days)"
               icon={<FlaskConical className="h-3.5 w-3.5 text-primary" />}
-              trend={2}
               updatedAt={now}
             />
             <KpiCard
@@ -174,7 +171,6 @@ export default function CommandCenterPage() {
               value={k.orange_book_updates}
               hint="Product records changed (30 days)"
               icon={<Database className="h-3.5 w-3.5 text-primary" />}
-              trend={-1}
               updatedAt={now}
             />
             <KpiCard
@@ -192,7 +188,6 @@ export default function CommandCenterPage() {
               hint="Critical/High priority insights"
               icon={<Target className="h-3.5 w-3.5 text-warning" />}
               tone="warning"
-              trend={7}
               updatedAt={now}
             />
             <KpiCard
@@ -200,7 +195,6 @@ export default function CommandCenterPage() {
               value={k.changes_last_30_days}
               hint={`${fmtCompact(k.insights_total)} insights generated all-time`}
               icon={<TrendingUp className="h-3.5 w-3.5 text-primary" />}
-              trend={5}
               updatedAt={now}
             />
           </>

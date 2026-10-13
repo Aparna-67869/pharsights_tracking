@@ -9,6 +9,7 @@ import {
   CheckCircle2,
   Loader2,
   Send,
+  ShieldAlert,
   Sparkles,
   Terminal,
   UserRound,
@@ -19,6 +20,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Textarea } from "@/components/ui/input";
+import { useAuth } from "@/components/providers/auth-provider";
 import { cn } from "@/lib/utils";
 import type { CopilotAnswer } from "@/types/api";
 
@@ -37,6 +39,8 @@ export default function CopilotPage() {
   const [conversationId, setConversationId] = React.useState<string | undefined>(undefined);
 
   const suggested = useQuery({ queryKey: ["copilot-suggested"], queryFn: () => api.copilotSuggested() });
+  const { hasScope, user } = useAuth();
+  const canUseCopilot = hasScope("use:copilot");
 
   const ask = useMutation({
     mutationFn: (question: string) => api.copilotAsk(question, useLlm, conversationId),
@@ -66,6 +70,35 @@ export default function CopilotPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  if (!canUseCopilot) {
+    return (
+      <div className="space-y-5">
+        <header>
+          <h1 className="flex items-center gap-2 text-xl font-semibold">
+            <BrainCircuit className="h-5 w-5 text-primary" /> AI Copilot
+          </h1>
+          <p className="mt-1 text-sm text-muted-foreground">
+            Ask regulatory questions in plain English, grounded in the platform&apos;s own records.
+          </p>
+        </header>
+        <Card className="p-8">
+          <div className="mx-auto max-w-xl text-center">
+            <span className="mx-auto grid h-12 w-12 place-items-center rounded-2xl bg-warning/15 text-warning-foreground ring-1 ring-warning/30">
+              <ShieldAlert className="h-6 w-6" />
+            </span>
+            <h2 className="mt-3 text-base font-semibold">Copilot access required</h2>
+            <p className="mt-1 text-sm text-muted-foreground">
+              Your role{user?.role ? ` (${user.role})` : ""} does not include the{" "}
+              <code className="rounded bg-muted px-1 py-0.5 text-xs">use:copilot</code> scope. Ask an
+              administrator to grant a role with copilot access — Analyst, Regulatory Affairs, IP Counsel or
+              Executive all have it.
+            </p>
+          </div>
+        </Card>
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-5">
       <header>
@@ -89,7 +122,7 @@ export default function CopilotPage() {
                 <h2 className="mt-3 text-base font-semibold">What would you like to know?</h2>
                 <p className="mt-1 text-sm text-muted-foreground">
                   The copilot can compare Orange Book supplements, list new PTE applications, find Paragraph IV
-                  filings by therapy area, identify expiring patents and surface generic opportunities.
+                  filings by drug or sponsor, identify expiring patents and surface generic opportunities.
                 </p>
                 <div className="mt-4 grid gap-2 sm:grid-cols-2">
                   {(suggested.data ?? []).slice(0, 6).map((question) => (
