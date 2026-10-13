@@ -70,41 +70,53 @@ export default function ExecutivePage() {
         </div>
       </header>
 
-      {/* The four numbers management needs first */}
+      {/* The four numbers management needs first. Each card renders its own
+          skeleton until its query resolves, so a slow endpoint never shows a
+          misleading "0" for a figure that is still loading. */}
       <section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-        {kpis.isLoading || !k ? (
-          Array.from({ length: 4 }).map((_, i) => <KpiSkeleton key={i} />)
+        {alerts.isLoading ? (
+          <KpiSkeleton />
         ) : (
-          <>
-            <KpiCard
-              label="Competitive threats"
-              value={summary?.critical ?? 0}
-              hint="Critical-priority changes requiring attention"
-              icon={<AlertTriangle className="h-3.5 w-3.5 text-destructive" />}
-              tone={(summary?.critical ?? 0) > 0 ? "destructive" : "success"}
-            />
-            <KpiCard
-              label="Patent opportunities"
-              value={opportunities.data?.total ?? 0}
-              hint="Listed expiries inside the entry window"
-              icon={<Target className="h-3.5 w-3.5 text-warning" />}
-              tone="warning"
-            />
-            <KpiCard
-              label="Patents expiring ≤24m"
-              value={k.patents_expiring_soon}
-              hint="Near-term revenue-at-risk ceiling"
-              icon={<CalendarClock className="h-3.5 w-3.5 text-warning" />}
-              tone="warning"
-            />
-            <KpiCard
-              label="Open alerts"
-              value={k.open_alerts}
-              hint={summary ? `${summary.high} high · ${summary.medium} medium` : undefined}
-              icon={<BellRing className="h-3.5 w-3.5 text-primary" />}
-              tone="primary"
-            />
-          </>
+          <KpiCard
+            label="Competitive threats"
+            value={summary?.critical ?? 0}
+            hint="Critical-priority changes requiring attention"
+            icon={<AlertTriangle className="h-3.5 w-3.5 text-destructive" />}
+            tone={(summary?.critical ?? 0) > 0 ? "destructive" : "success"}
+          />
+        )}
+        {opportunities.isLoading ? (
+          <KpiSkeleton />
+        ) : (
+          <KpiCard
+            label="Patent opportunities"
+            value={opportunities.data?.total ?? 0}
+            hint="Listed expiries inside the entry window"
+            icon={<Target className="h-3.5 w-3.5 text-warning" />}
+            tone="warning"
+          />
+        )}
+        {kpis.isLoading || !k ? (
+          <KpiSkeleton />
+        ) : (
+          <KpiCard
+            label="Patents expiring ≤24m"
+            value={k.patents_expiring_soon}
+            hint="Near-term revenue-at-risk ceiling"
+            icon={<CalendarClock className="h-3.5 w-3.5 text-warning" />}
+            tone="warning"
+          />
+        )}
+        {kpis.isLoading || !k ? (
+          <KpiSkeleton />
+        ) : (
+          <KpiCard
+            label="Open alerts"
+            value={k.open_alerts}
+            hint={summary ? `${summary.high} high · ${summary.medium} medium` : undefined}
+            icon={<BellRing className="h-3.5 w-3.5 text-primary" />}
+            tone="primary"
+          />
         )}
       </section>
 
@@ -119,8 +131,14 @@ export default function ExecutivePage() {
             bodyClassName="p-0"
             actions={
               <div className="flex gap-1.5">
-                <Badge variant="outline">high {bands.high ?? 0}</Badge>
-                <Badge variant="outline">medium {bands.medium ?? 0}</Badge>
+                {opportunities.isPending ? (
+                  <span className="text-[11px] text-muted-foreground">scoring…</span>
+                ) : (
+                  <>
+                    <Badge variant="outline">high {bands.high ?? 0}</Badge>
+                    <Badge variant="outline">medium {bands.medium ?? 0}</Badge>
+                  </>
+                )}
               </div>
             }
           >

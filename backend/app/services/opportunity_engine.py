@@ -46,25 +46,32 @@ def _band(score: float) -> str:
 
 
 def score_opportunity(months_to_expiry: int | None, competitor_count: int) -> tuple[float, str]:
-    """Return a 0..100 opportunity score and a human rationale."""
+    """Return a 0..100 opportunity score and a human rationale.
+
+    The score multiplies a time component (nearest expiry scores highest, fading
+    to zero at 36 months) by a crowding factor, so the ranking actually spreads
+    across the watchlist instead of saturating at 100 for every near-term row.
+    """
     if months_to_expiry is None:
         return 0.0, "No listed expiry date."
     if months_to_expiry < 0:
         return 10.0, "Patent already expired."
 
-    # Time component: nearer expiry = larger opportunity, decaying after 36m.
     time_score = max(0.0, 100.0 - (months_to_expiry / 36.0) * 100.0)
-    # Crowding penalty: many listed patents means a harder entry.
-    crowding = min(30.0, competitor_count * 3.0)
-    score = max(0.0, min(100.0, time_score - crowding + 25.0))
+    # Every further patent listed on the same application cuts the score, capped
+    # at a 50% reduction — a crowded field is harder to enter.
+    crowding_factor = 1.0 - min(0.5, max(0, competitor_count - 1) * 0.08)
+    score = round(max(0.0, min(100.0, time_score * crowding_factor)), 1)
     rationale = (
         f"{months_to_expiry} months to expiry; "
-        f"{competitor_count} listed patent(s) — {'crowded' if crowding > 12 else 'open'} field."
+        f"{competitor_count} listed patent(s) — {'crowded' if competitor_count > 4 else 'open'} field."
     )
-    return round(score, 1), rationale
+    return score, rationale
 
 
-def top_opportunities(session: Session, *, limit: int = 25, within_months: int = 48) -> list[Opportunity]:
+def top_opportunities(
+    session: Session, *, limit: int | None = 25, within_months: int = 48
+) -> list[Opportunity]:
     today = date.today()
     patents = list(session.scalars(select(OrangeBookPatent)))
     products = {
@@ -81,24 +88,33 @@ def top_opportunities(session: Session, *, limit: int = 25, within_months: int =
         ).all()
     )
 
-    raw: list[Opportunity] = []
+    # Collapse to one row per application — the soonest-expiring listed patent —
+    # so a product with several patents does not crowd the watchlist repeatedly.
+    nearest: dict[tuple[str, str], tuple[date, str]] = {}
     for patent in patents:
         if not patent.expiration_date:
             continue
-        months = (patent.expiration_date.year - today.year) * 12 + (patent.expiration_date.month - today.month)
+        key = (patent.appl_type, patent.appl_no)
+        current = nearest.get(key)
+        if current is None or patent.expiration_date < current[0]:
+            nearest[key] = (patent.expiration_date, patent.patent_number)
+
+    raw: list[Opportunity] = []
+    for (appl_type, appl_no), (expiry, patent_number) in nearest.items():
+        months = (expiry.year - today.year) * 12 + (expiry.month - today.month)
         if months < 0 or months > within_months:
             continue
-        product = products.get((patent.appl_type, patent.appl_no))
-        competitors = counts.get(f"{patent.appl_type}-{patent.appl_no}", 1)
+        product = products.get((appl_type, appl_no))
+        competitors = counts.get(f"{appl_type}-{appl_no}", 1)
         score, rationale = score_opportunity(months, competitors)
         raw.append(
             Opportunity(
-                appl_no=f"{patent.appl_type}{patent.appl_no}",
+                appl_no=f"{appl_type}{appl_no}",
                 ingredient=(product.ingredient if product else None) or "—",
                 trade_name=product.trade_name if product else None,
                 applicant=(product.applicant_full_name or product.applicant) if product else None,
-                patent_number=patent.patent_number,
-                expiration_date=patent.expiration_date.isoformat(),
+                patent_number=patent_number,
+                expiration_date=expiry.isoformat(),
                 months_to_expiry=months,
                 opportunity_score=score,
                 band=_band(score),
@@ -107,11 +123,13 @@ def top_opportunities(session: Session, *, limit: int = 25, within_months: int =
         )
 
     raw.sort(key=lambda item: item.opportunity_score, reverse=True)
-    return raw[:limit]
+    return raw if limit is None else raw[:limit]
 
 
 def opportunity_summary(session: Session) -> dict[str, Any]:
-    rows = top_opportunities(session, limit=5000)
+    # One row per application, and no arbitrary cap, so the totals and band
+    # counts the executive view shows are the real size of the watchlist.
+    rows = top_opportunities(session, limit=None)
     by_band: dict[str, int] = {}
     for row in rows:
         by_band[row.band] = by_band.get(row.band, 0) + 1
