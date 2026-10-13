@@ -188,6 +188,26 @@ The SOP mandates that each module mirrors what the analyst sees on the source pa
   `TEAMS_WEBHOOK_URL`, `SLACK_WEBHOOK_URL` and `SCHEDULER_INTERVAL_MINUTES`
   through from the environment.
 
+## Vercel deployment
+
+- The monorepo deploys as **two Vercel projects** from the same repo, each with
+  **Root Directory** set: `frontend` and `backend`. A project created at the
+  repo root fails on both — no `package.json` for the frontend, no entrypoint
+  for the backend. This is the usual cause of "Deployment failed" on both.
+- Backend entrypoint is `backend/api/index.py` (exposes ASGI `app`); it puts
+  `backend/` on `sys.path` so `from app.main import app` resolves. `backend/
+  vercel.json` sets function memory/timeout.
+- `backend/.vercelignore` excludes `data/` — the local SQLite DB is ~560 MB and
+  would break the upload. Vercel's FS is read-only, so the backend needs a real
+  Postgres (`psycopg[binary]` is in requirements for `postgresql+psycopg://`).
+- Frontend `next.config.js` sets `output: "standalone"` **only** when `VERCEL`
+  is unset, so the local/Docker supervisor still works while Vercel builds
+  normally. Set `NEXT_PUBLIC_API_BASE_URL` before the first build (it is baked
+  in).
+- Serverless caveats: `SCHEDULER_ENABLED=false` (long-running loop), no
+  WebSockets (live stream falls back to polling), pgvector optional. Full guide:
+  `deploy/vercel/README.md`.
+
 ## Frontend static serving (standalone)
 
 - `scripts/serve.sh` must `rm -rf` the standalone `.next/static` and `public`
