@@ -7,11 +7,13 @@ index). Production deployments override via environment variables.
 
 from __future__ import annotations
 
+import json
 from functools import lru_cache
 from pathlib import Path
+from typing import Annotated
 
-from pydantic import Field
-from pydantic_settings import BaseSettings, SettingsConfigDict
+from pydantic import Field, field_validator
+from pydantic_settings import BaseSettings, NoDecode, SettingsConfigDict
 
 BACKEND_DIR = Path(__file__).resolve().parents[2]
 REPO_ROOT = BACKEND_DIR.parent
@@ -104,9 +106,23 @@ class Settings(BaseSettings):
     # ``smtp_use_tls`` can force STARTTLS on/off for anything unusual.
     smtp_use_ssl: bool | None = None  # None = infer from port
     smtp_use_tls: bool = True
-    alert_email_recipients: list[str] = Field(default_factory=list)
+    alert_email_recipients: Annotated[list[str], NoDecode] = Field(default_factory=list)
     teams_webhook_url: str | None = None
     slack_webhook_url: str | None = None
+
+    @field_validator("alert_email_recipients", mode="before")
+    @classmethod
+    def _csv_recipients(cls, value: object) -> object:
+        # Deployments commonly export this as an empty string when unset, and as
+        # a comma-separated list otherwise — accept both.
+        if isinstance(value, str):
+            text = value.strip()
+            if not text:
+                return []
+            if text.startswith("["):
+                return json.loads(text)
+            return [part.strip() for part in text.split(",") if part.strip()]
+        return value
 
     # ---- Observability ----
     otel_enabled: bool = False

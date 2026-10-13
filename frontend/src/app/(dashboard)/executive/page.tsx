@@ -229,14 +229,18 @@ export default function ExecutivePage() {
             )}
           </Panel>
 
-          <Panel title="Top sponsors" subtitle="Concentration of monitored activity" icon={<Building2 className="h-3.5 w-3.5" />}>
+          <Panel
+            title="Top sponsors"
+            subtitle="Aggregate generic-opportunity score by labeler"
+            icon={<Building2 className="h-3.5 w-3.5" />}
+          >
             {opportunities.data?.sponsor_leaderboard.length ? (
               <div className="space-y-2">
                 {opportunities.data.sponsor_leaderboard.slice(0, 6).map((row, index) => (
                   <div key={row.sponsor} className="flex items-center gap-2 text-xs">
                     <span className="numeric w-4 text-muted-foreground">{index + 1}</span>
                     <span className="min-w-0 flex-1 truncate">{row.sponsor}</span>
-                    <span className="numeric text-muted-foreground">{row.score}</span>
+                    <span className="numeric tabular-nums text-muted-foreground">{row.score}</span>
                   </div>
                 ))}
               </div>

@@ -78,7 +78,11 @@ async def lifespan(app: FastAPI):
     # with no user action. Runs only in the serving process, never under pytest.
     if settings.environment != "test":
         from app.services import scheduler
+        from app.services.pipeline import reconcile_orphan_runs
 
+        # Nothing can legitimately be mid-sweep this early, so any run still
+        # marked "running" was orphaned by a previous process dying.
+        reconcile_orphan_runs()
         scheduler.start()
     yield
     log.info("shutting down %s", settings.app_name)

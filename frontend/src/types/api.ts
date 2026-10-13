@@ -206,6 +206,15 @@ export interface Alert {
   created_at: string;
 }
 
+export interface KpiCoverage {
+  ftf_records: number;
+  pte_applications: number;
+  pte_certificates: number;
+  active_moieties: number;
+  orange_book_products: number;
+  listed_patents: number;
+}
+
 export interface Kpis {
   drugs_monitored: number;
   patents_expiring_soon: number;
@@ -218,6 +227,7 @@ export interface Kpis {
   high_risk_opportunities: number;
   changes_last_30_days: number;
   insights_total: number;
+  coverage: KpiCoverage;
 }
 
 export interface AlertSummary {

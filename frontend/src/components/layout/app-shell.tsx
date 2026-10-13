@@ -5,7 +5,6 @@ import { useQuery } from "@tanstack/react-query";
 import { api } from "@/lib/api";
 import { Sidebar } from "@/components/layout/sidebar";
 import { Topbar } from "@/components/layout/topbar";
-import { TickerStrip } from "@/components/layout/ticker-strip";
 import { CopilotDrawer } from "@/components/layout/copilot-drawer";
 import { CommandPalette } from "@/components/layout/command-palette";
 import { useRealtime } from "@/components/providers/realtime-provider";
@@ -15,8 +14,8 @@ const COLLAPSE_KEY = "pharma.nav.collapsed";
 
 /**
  * Application shell for the command center: collapsible module navigation, the
- * operational top bar, a market-style ticker strip, and the global overlays
- * (command palette + floating copilot).
+ * operational top bar, and the global overlays (command palette + floating
+ * copilot).
  */
 export function AppShell({ children }: { children: React.ReactNode }) {
   const { connected } = useRealtime();
@@ -77,7 +76,6 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           onOpenPalette={() => setPaletteOpen(true)}
           onOpenCopilot={() => setCopilotOpen(true)}
         />
-        <TickerStrip />
         <main className="mx-auto w-full max-w-[1760px] px-3 py-4">{children}</main>
       </div>
 

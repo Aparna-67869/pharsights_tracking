@@ -346,31 +346,38 @@ def patents_expiring_soon(session: Session, months: int = 24, limit: int = 100) 
 
 
 def sponsor_leaderboard(session: Session, limit: int = 15) -> list[dict[str, Any]]:
-    """Rank sponsors by total monitored activity across every module."""
+    """Rank organisations by monitored activity, counting distinct products.
+
+    Orange Book stores one row per product/strength, so a raw row count inflates
+    large portfolios; counting distinct applications keeps the measure meaningful.
+    PTE and FTF carry no sponsor name in their published sources, so those two
+    dimensions are omitted rather than reported as zero.
+    """
     results: dict[str, dict[str, Any]] = {}
 
-    def _bump(name: str | None, key: str) -> None:
+    def _bump(name: str | None, key: str, amount: int = 1) -> None:
         if not name:
             return
-        entry = results.setdefault(name, {"sponsor": name, "nda": 0, "pde": 0, "pte": 0, "ftf": 0, "total": 0})
-        entry[key] += 1
-        entry["total"] += 1
+        entry = results.setdefault(name, {"sponsor": name, "nda": 0, "pde": 0, "total": 0})
+        entry[key] += amount
+        entry["total"] += amount
 
-    for (name,) in session.execute(
-        select(OrangeBookProduct.applicant_full_name)
-        .where(OrangeBookProduct.is_active.is_(True), OrangeBookProduct.appl_type == "N")
-    ).all():
-        _bump(name, "nda")
-    for (name,) in session.execute(
-        select(ActiveMoiety.sponsor_name).where(ActiveMoiety.is_active.is_(True))
-    ).all():
-        _bump(name, "pde")
-    for (name,) in session.execute(
-        select(PteCertificate.sponsor_name).where(
-            PteCertificate.is_active.is_(True), PteCertificate.sponsor_name.is_not(None)
+    for name, count in session.execute(
+        select(OrangeBookProduct.applicant_full_name, func.count(func.distinct(OrangeBookProduct.appl_no)))
+        .where(
+            OrangeBookProduct.is_active.is_(True),
+            OrangeBookProduct.appl_type == "N",
+            OrangeBookProduct.applicant_full_name.is_not(None),
         )
+        .group_by(OrangeBookProduct.applicant_full_name)
     ).all():
-        _bump(name, "pte")
+        _bump(name, "nda", count)
+    for name, count in session.execute(
+        select(ActiveMoiety.sponsor_name, func.count(func.distinct(ActiveMoiety.moiety_name)))
+        .where(ActiveMoiety.is_active.is_(True), ActiveMoiety.sponsor_name.is_not(None))
+        .group_by(ActiveMoiety.sponsor_name)
+    ).all():
+        _bump(name, "pde", count)
 
     ranked = sorted(results.values(), key=lambda r: r["total"], reverse=True)[:limit]
     return ranked
@@ -458,6 +465,22 @@ def executive_kpis(session: Session) -> dict[str, Any]:
         DetectedChange.detected_at >= cutoff_30,
         DetectedChange.is_baseline.is_(False),
     )
+    # Corpus coverage: the real inventory currently held for each source. The
+    # 30-day counters above are deltas and read zero on a stable corpus; these
+    # counts are the honest answer to "what is being monitored right now".
+    coverage = {
+        "ftf_records": _count(FtfRecord, FtfRecord.is_active.is_(True)),
+        "pte_applications": _count(PteApplication, PteApplication.is_active.is_(True)),
+        "pte_certificates": _count(PteCertificate, PteCertificate.is_active.is_(True)),
+        "active_moieties": _count(ActiveMoiety, ActiveMoiety.is_active.is_(True)),
+        "orange_book_products": session.scalar(
+            select(func.count(func.distinct(OrangeBookProduct.appl_no))).where(
+                OrangeBookProduct.is_active.is_(True)
+            )
+        )
+        or 0,
+        "listed_patents": _count(Patent, Patent.expiration_date.is_not(None)),
+    }
 
     return {
         "drugs_monitored": drugs_monitored,
@@ -471,11 +494,17 @@ def executive_kpis(session: Session) -> dict[str, Any]:
         "high_risk_opportunities": high_risk,
         "changes_last_30_days": changes_30d,
         "insights_total": _count(Insight),
+        "coverage": coverage,
     }
 
 
 def generic_opportunity_heatmap(session: Session, limit: int = 25) -> list[dict[str, Any]]:
-    """Products ranked by generic-entry attractiveness (near-term patent expiry)."""
+    """Products ranked by generic-entry attractiveness.
+
+    Only future expiries count — a listing whose patents have already lapsed is
+    an open market, not a near-term opportunity, so counting those (at score
+    100) would misrepresent the board.
+    """
     today = _TODAY()
     horizon = today + timedelta(days=1095)  # 3 years
     rows = session.execute(
@@ -499,6 +528,7 @@ def generic_opportunity_heatmap(session: Session, limit: int = 25) -> list[dict[
             OrangeBookProduct.is_active.is_(True),
             OrangeBookPatent.is_active.is_(True),
             OrangeBookPatent.expiration_date.is_not(None),
+            OrangeBookPatent.expiration_date >= today,
             OrangeBookPatent.expiration_date <= horizon,
         )
         .group_by(

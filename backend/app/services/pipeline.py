@@ -279,3 +279,22 @@ def run_pipeline(
     publish_event(Topics.PIPELINE_RUN, result.status, result.to_dict())
     log.info("pipeline %s finished: %s", run_id, result.to_dict())
     return result
+
+
+def reconcile_orphan_runs() -> int:
+    """Close runs left in ``running`` by a process that died mid-sweep.
+
+    The pipeline runs inside the API process; a restart, deploy or crash would
+    otherwise leave those rows reporting "running" forever. Called at startup,
+    when nothing can legitimately be in flight.
+    """
+    with session_scope() as session:
+        orphans = session.scalars(select(PipelineRun).where(PipelineRun.status == "running")).all()
+        for run in orphans:
+            run.status = "interrupted"
+            run.finished_at = utcnow()
+            run.error = run.error or "Interrupted by a service restart"
+        count = len(orphans)
+    if count:
+        log.info("reconciled %d interrupted pipeline run(s)", count)
+    return count
