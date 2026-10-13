@@ -44,31 +44,54 @@ export default function ExecutivePage() {
   const k = kpis.data?.kpis;
   const summary = kpis.data?.alerts;
   const bands = opportunities.data?.by_band ?? {};
+  const coverage = k?.coverage;
+  const byPriority = summary?.by_priority ?? {};
 
   return (
     <div className="space-y-4">
-      <header className="flex flex-col gap-2 lg:flex-row lg:items-end lg:justify-between">
-        <div>
-          <h1 className="flex items-center gap-2 text-lg font-semibold tracking-tight">
-            <Landmark className="h-4.5 w-4.5 text-primary" /> Executive Landscape
-          </h1>
-          <p className="mt-0.5 text-xs text-muted-foreground">
-            Threats, opportunities and regulatory activity — the whole picture on one screen.
-          </p>
+      {/* Hero: the executive read, plus what the platform is watching. */}
+      <section className="hero hero-grid">
+        <div className="relative z-10 flex flex-col gap-5 p-5 lg:flex-row lg:items-center lg:justify-between lg:p-6">
+          <div className="max-w-2xl">
+            <span className="status-chip border-primary/40 bg-primary/10 text-primary">
+              <Landmark className="h-3 w-3" /> Executive Landscape
+            </span>
+            <h1 className="mt-3 text-2xl font-semibold tracking-tight lg:text-[28px]">
+              Threats, opportunities &amp; regulatory activity
+            </h1>
+            <p className="mt-1.5 text-sm text-muted-foreground">
+              The whole portfolio on one screen, scored from real FDA, USPTO and Orange Book records —
+              read in under thirty seconds.
+            </p>
+            <div className="mt-3 flex flex-wrap gap-2">
+              <span className="pill">
+                <Database className="h-3 w-3" />
+                {coverage ? `${fmtNumber(coverage.orange_book_products)} listed apps` : "Corpus loading"}
+              </span>
+              <span className="pill">
+                <ShieldCheck className="h-3 w-3" />
+                {coverage ? `${fmtNumber(coverage.listed_patents)} listed patents` : "—"}
+              </span>
+              <span className="pill">
+                <Target className="h-3 w-3" />
+                {coverage ? `${fmtNumber(coverage.active_moieties)} active moieties` : "—"}
+              </span>
+            </div>
+          </div>
+          <div className="flex shrink-0 gap-2 lg:border-l lg:border-border/50 lg:pl-6">
+            <Link href="/">
+              <Button variant="outline" size="sm">
+                <TrendingUp className="h-3.5 w-3.5" /> Command Center
+              </Button>
+            </Link>
+            <Link href="/copilot">
+              <Button size="sm">
+                <ShieldCheck className="h-3.5 w-3.5" /> Brief me
+              </Button>
+            </Link>
+          </div>
         </div>
-        <div className="flex gap-2">
-          <Link href="/">
-            <Button variant="outline" size="sm">
-              <TrendingUp className="h-3.5 w-3.5" /> Command Center
-            </Button>
-          </Link>
-          <Link href="/copilot">
-            <Button size="sm">
-              <ShieldCheck className="h-3.5 w-3.5" /> Brief me
-            </Button>
-          </Link>
-        </div>
-      </header>
+      </section>
 
       {/* The four numbers management needs first. Each card renders its own
           skeleton until its query resolves, so a slow endpoint never shows a
@@ -79,10 +102,10 @@ export default function ExecutivePage() {
         ) : (
           <KpiCard
             label="Competitive threats"
-            value={summary?.critical ?? 0}
+            value={byPriority.critical ?? 0}
             hint="Critical-priority changes requiring attention"
             icon={<AlertTriangle className="h-3.5 w-3.5 text-destructive" />}
-            tone={(summary?.critical ?? 0) > 0 ? "destructive" : "success"}
+            tone={(byPriority.critical ?? 0) > 0 ? "destructive" : "success"}
           />
         )}
         {opportunities.isLoading ? (
@@ -113,7 +136,7 @@ export default function ExecutivePage() {
           <KpiCard
             label="Open alerts"
             value={k.open_alerts}
-            hint={summary ? `${summary.high} high · ${summary.medium} medium` : undefined}
+            hint={summary ? `${byPriority.high ?? 0} high · ${byPriority.medium ?? 0} medium` : undefined}
             icon={<BellRing className="h-3.5 w-3.5 text-primary" />}
             tone="primary"
           />
