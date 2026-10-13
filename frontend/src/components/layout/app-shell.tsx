@@ -1,25 +1,29 @@
 "use client";
 
 import * as React from "react";
-import { useRouter } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
-import { BellRing, LogOut, Moon, Search, Sparkles, Sun, UserRound } from "lucide-react";
 import { api } from "@/lib/api";
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
-import { Sidebar, Topbar } from "@/components/layout/sidebar";
+import { Sidebar } from "@/components/layout/sidebar";
+import { Topbar } from "@/components/layout/topbar";
+import { TickerStrip } from "@/components/layout/ticker-strip";
+import { CopilotDrawer } from "@/components/layout/copilot-drawer";
 import { CommandPalette } from "@/components/layout/command-palette";
-import { useAuth } from "@/components/providers/auth-provider";
-import { useTheme } from "@/components/providers/theme-provider";
 import { useRealtime } from "@/components/providers/realtime-provider";
+import { cn } from "@/lib/utils";
 
+const COLLAPSE_KEY = "pharma.nav.collapsed";
+
+/**
+ * Application shell for the command center: collapsible module navigation, the
+ * operational top bar, a market-style ticker strip, and the global overlays
+ * (command palette + floating copilot).
+ */
 export function AppShell({ children }: { children: React.ReactNode }) {
-  const { user, logout } = useAuth();
-  const { theme, toggle } = useTheme();
   const { connected } = useRealtime();
-  const router = useRouter();
   const [navOpen, setNavOpen] = React.useState(false);
+  const [collapsed, setCollapsed] = React.useState(false);
   const [paletteOpen, setPaletteOpen] = React.useState(false);
+  const [copilotOpen, setCopilotOpen] = React.useState(false);
 
   const { data: alertSummary } = useQuery({
     queryKey: ["alert-summary"],
@@ -28,10 +32,28 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   });
 
   React.useEffect(() => {
+    setCollapsed(window.localStorage.getItem(COLLAPSE_KEY) === "1");
+  }, []);
+
+  const toggleCollapse = React.useCallback(() => {
+    setCollapsed((value) => {
+      const next = !value;
+      window.localStorage.setItem(COLLAPSE_KEY, next ? "1" : "0");
+      return next;
+    });
+  }, []);
+
+  React.useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
-      if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "k") {
+      const meta = event.metaKey || event.ctrlKey;
+      if (meta && event.key.toLowerCase() === "k") {
         event.preventDefault();
         setPaletteOpen((open) => !open);
+      }
+      // Cmd/Ctrl + J toggles the copilot, matching terminal-app conventions.
+      if (meta && event.key.toLowerCase() === "j") {
+        event.preventDefault();
+        setCopilotOpen((open) => !open);
       }
     };
     window.addEventListener("keydown", onKey);
@@ -41,69 +63,32 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const openAlerts = alertSummary?.open ?? 0;
 
   return (
-    <div className="aurora min-h-screen bg-background">
-      <Sidebar open={navOpen} onClose={() => setNavOpen(false)} alertCount={openAlerts} />
-      <div className="relative z-10 lg:pl-64">
-        <Topbar onMenu={() => setNavOpen(true)}>
-          <button
-            onClick={() => setPaletteOpen(true)}
-            className="flex h-9 flex-1 items-center gap-2 rounded-lg border border-border/70 bg-surface/60 px-3 text-sm text-muted-foreground transition-colors hover:bg-surface-muted/60 md:max-w-md"
-          >
-            <Search className="h-4 w-4" />
-            <span className="flex-1 text-left">Search drugs, patents, NDA/ANDA, sponsors…</span>
-            <kbd className="hidden rounded border border-border bg-muted/60 px-1.5 py-0.5 text-[10px] font-medium md:inline">
-              ⌘K
-            </kbd>
-          </button>
-
-          <div className="ml-auto flex items-center gap-1.5">
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => router.push("/copilot")}
-              className="hidden sm:inline-flex"
-            >
-              <Sparkles className="h-4 w-4 text-primary" />
-              Copilot
-            </Button>
-            <Button variant="ghost" size="icon" onClick={() => router.push("/alerts")} aria-label="Alerts">
-              <span className="relative">
-                <BellRing className="h-4 w-4" />
-                {openAlerts > 0 ? (
-                  <span className="absolute -right-1 -top-1 grid h-3.5 min-w-3.5 place-items-center rounded-full bg-destructive px-0.5 text-[9px] font-bold text-destructive-foreground">
-                    {openAlerts > 9 ? "9+" : openAlerts}
-                  </span>
-                ) : null}
-              </span>
-            </Button>
-            <Button variant="ghost" size="icon" onClick={toggle} aria-label="Toggle theme">
-              {theme === "dark" ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
-            </Button>
-
-            <div className="ml-1 hidden items-center gap-2 rounded-lg border border-border/70 bg-surface/60 py-1 pl-2 pr-1 md:flex">
-              <UserRound className="h-4 w-4 text-muted-foreground" />
-              <div className="flex flex-col leading-none">
-                <span className="max-w-[140px] truncate text-xs font-medium">
-                  {user?.username ?? "—"}
-                </span>
-                <span className="text-[10px] uppercase tracking-wide text-muted-foreground">
-                  {user?.role?.replace(/_/g, " ") ?? ""}
-                </span>
-              </div>
-              <Badge variant={connected ? "success" : "secondary"} className="ml-1">
-                {connected ? "live" : "offline"}
-              </Badge>
-              <Button variant="ghost" size="icon" onClick={logout} aria-label="Sign out">
-                <LogOut className="h-4 w-4" />
-              </Button>
-            </div>
-          </div>
-        </Topbar>
-
-        <main className="mx-auto w-full max-w-[1700px] px-4 py-5">{children}</main>
+    <div className="min-h-screen bg-background grid-lines">
+      <Sidebar
+        open={navOpen}
+        onClose={() => setNavOpen(false)}
+        alertCount={openAlerts}
+        collapsed={collapsed}
+        onToggleCollapse={toggleCollapse}
+      />
+      <div className={cn("relative z-10 transition-[padding] duration-200", collapsed ? "lg:pl-[62px]" : "lg:pl-64")}>
+        <Topbar
+          onMenu={() => setNavOpen(true)}
+          onOpenPalette={() => setPaletteOpen(true)}
+          onOpenCopilot={() => setCopilotOpen(true)}
+        />
+        <TickerStrip />
+        <main className="mx-auto w-full max-w-[1760px] px-3 py-4">{children}</main>
       </div>
 
       <CommandPalette open={paletteOpen} onOpenChange={setPaletteOpen} />
+      <CopilotDrawer open={copilotOpen} onClose={() => setCopilotOpen(false)} />
+
+      {!connected ? (
+        <div className="pointer-events-none fixed bottom-4 left-1/2 z-50 -translate-x-1/2 rounded-full border border-border/70 bg-panel/90 px-3 py-1.5 text-[11px] text-muted-foreground shadow-glass backdrop-blur">
+          Reconnecting to live stream…
+        </div>
+      ) : null}
     </div>
   );
 }

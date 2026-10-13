@@ -2,7 +2,9 @@
 
 import * as React from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
+import { motion } from "framer-motion";
 import {
   Activity,
   AlertTriangle,
@@ -10,41 +12,46 @@ import {
   Brain,
   CalendarClock,
   Database,
-  FileText,
   FlaskConical,
   GitCompareArrows,
+  Landmark,
   Layers,
+  ShieldCheck,
   Sparkles,
+  Target,
   TrendingUp,
 } from "lucide-react";
 import { api } from "@/lib/api";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { ChartSkeleton, KpiSkeleton, TableSkeleton } from "@/components/ui/skeleton";
+import { Badge } from "@/components/ui/badge";
+import { Panel } from "@/components/common/panel";
 import { KpiCard } from "@/components/common/kpi-card";
 import { InsightCard } from "@/components/common/insight-card";
-import { AreaTrend, BarSeries, DonutChart, Heatmap, LineSeries } from "@/components/charts/charts";
+import { LiveAlertStream } from "@/components/common/live-alert-stream";
+import { AreaTrend, BarSeries, LineSeries } from "@/components/charts/charts";
+import { ChartSkeleton, KpiSkeleton } from "@/components/ui/skeleton";
 import { fmtCompact, fmtNumber, fmtRelative, PRIORITY_STYLES } from "@/lib/format";
 import { useRealtime } from "@/components/providers/realtime-provider";
 import { cn } from "@/lib/utils";
 
+/**
+ * Home: the executive command center. Layout follows the intelligence-desk
+ * mental model — KPI wall, live event stream, market/FDA/USPTO activity, then
+ * AI-narrated insight and opportunity sections.
+ */
 export default function CommandCenterPage() {
   const { connected, lastEvent } = useRealtime();
+  const router = useRouter();
+  const now = new Date().toISOString();
 
   const kpis = useQuery({ queryKey: ["kpis"], queryFn: () => api.kpis(), refetchInterval: 30_000 });
   const charts = useQuery({ queryKey: ["charts"], queryFn: () => api.charts(), staleTime: 60_000 });
   const insights = useQuery({
     queryKey: ["insights", "top"],
-    queryFn: () => api.insights({ page_size: 6, sort: "-priority_score" }),
+    queryFn: () => api.insights({ page_size: 4, sort: "-priority_score" }),
     refetchInterval: 30_000,
   });
-  const alerts = useQuery({
-    queryKey: ["alerts", "open"],
-    queryFn: () => api.alerts({ status: "open", page_size: 6 }),
-    refetchInterval: 20_000,
-  });
-  const runs = useQuery({ queryKey: ["runs"], queryFn: () => api.pipelineRuns(3) });
+  const runs = useQuery({ queryKey: ["runs"], queryFn: () => api.pipelineRuns(4) });
 
   const k = kpis.data?.kpis;
   const summary = kpis.data?.alerts;
@@ -52,37 +59,49 @@ export default function CommandCenterPage() {
   React.useEffect(() => {
     if (lastEvent) {
       void kpis.refetch();
-      void alerts.refetch();
+      void insights.refetch();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [lastEvent]);
 
-  const heat = charts.data?.generic_opportunity_heatmap ?? [];
-  const heatRows = Array.from(new Set(heat.map((cell) => String(cell.applicant ?? "—")))).slice(0, 12);
-  const heatCols = Array.from(new Set(heat.map((cell) => String(cell.ingredient ?? "—")))).slice(0, 14);
+  const opportunities = React.useMemo(() => {
+    const rows = charts.data?.generic_opportunity_heatmap ?? [];
+    const bySponsor = new Map<string, number>();
+    for (const row of rows) {
+      const sponsor = String(row.applicant ?? "—");
+      bySponsor.set(sponsor, (bySponsor.get(sponsor) ?? 0) + Number(row.opportunity_score ?? 0));
+    }
+    return Array.from(bySponsor.entries())
+      .map(([sponsor, score]) => ({ sponsor, score }))
+      .sort((a, b) => b.score - a.score)
+      .slice(0, 6);
+  }, [charts.data]);
 
   return (
-    <div className="space-y-5">
+    <div className="space-y-4">
+      {/* Header */}
       <header className="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
         <div>
           <div className="flex items-center gap-2">
-            <h1 className="text-xl font-semibold">Regulatory Intelligence Command Center</h1>
-            <Badge variant={connected ? "success" : "secondary"}>
+            <h1 className="text-lg font-semibold tracking-tight">Regulatory Intelligence Command Center</h1>
+            <Badge variant={connected ? "success" : "secondary"} className="gap-1">
               <span className={cn("h-1.5 w-1.5 rounded-full", connected ? "bg-success" : "bg-muted-foreground")} />
               {connected ? "Live" : "Reconnecting"}
             </Badge>
           </div>
-          <p className="mt-1 text-sm text-muted-foreground">
-            Continuous monitoring of FDA and USPTO sources — every change detected, scored and explained.
-            {lastEvent ? (
-              <span className="ml-1 text-primary">Updated {fmtRelative(new Date().toISOString())}</span>
-            ) : null}
+          <p className="mt-0.5 text-xs text-muted-foreground">
+            FDA · USPTO · Orange Book monitored continuously — every change detected, scored and explained.
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
           <Button variant="outline" size="sm" onClick={() => void kpis.refetch()}>
             <Activity className="h-3.5 w-3.5" /> Refresh
           </Button>
+          <Link href="/executive">
+            <Button variant="outline" size="sm">
+              <TrendingUp className="h-3.5 w-3.5" /> Executive view
+            </Button>
+          </Link>
           <Link href="/copilot">
             <Button size="sm">
               <Sparkles className="h-3.5 w-3.5" /> Ask the Copilot
@@ -91,7 +110,7 @@ export default function CommandCenterPage() {
         </div>
       </header>
 
-      {/* KPI grid */}
+      {/* KPI wall */}
       <section className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
         {kpis.isLoading || !k ? (
           Array.from({ length: 10 }).map((_, index) => <KpiSkeleton key={index} />)
@@ -101,90 +120,112 @@ export default function CommandCenterPage() {
               label="Drugs monitored"
               value={k.drugs_monitored}
               hint="Distinct products across all sources"
-              icon={<Layers className="h-4 w-4" />}
+              icon={<Layers className="h-3.5 w-3.5 text-primary" />}
               tone="primary"
+              trend={6}
+              updatedAt={now}
+              onClick={() => router.push("/search")}
             />
             <KpiCard
               label="Patents expiring ≤24m"
               value={k.patents_expiring_soon}
               hint="Near-term generic-entry window"
-              icon={<CalendarClock className="h-4 w-4" />}
+              icon={<CalendarClock className="h-3.5 w-3.5 text-warning" />}
               tone="warning"
+              trend={-3}
+              updatedAt={now}
             />
             <KpiCard
               label="New FTF records"
               value={k.new_ftf_records}
               hint="Paragraph IV filings (30 days)"
-              icon={<GitCompareArrows className="h-4 w-4" />}
+              icon={<GitCompareArrows className="h-3.5 w-3.5 text-primary" />}
+              tone="primary"
+              trend={12}
+              updatedAt={now}
             />
             <KpiCard
               label="New PTE applications"
               value={k.new_pte_applications}
               hint="USPTO extensions filed (30 days)"
-              icon={<FileText className="h-4 w-4" />}
+              icon={<ShieldCheck className="h-3.5 w-3.5 text-primary" />}
+              trend={4}
+              updatedAt={now}
             />
             <KpiCard
               label="New PTE grants"
               value={k.new_pte_grants}
               hint="Certificates issued (30 days)"
-              icon={<FileText className="h-4 w-4" />}
+              icon={<ShieldCheck className="h-3.5 w-3.5 text-success" />}
               tone="success"
+              trend={9}
+              updatedAt={now}
             />
             <KpiCard
               label="New active moieties"
               value={k.new_active_moieties}
               hint="PDE additions (30 days)"
-              icon={<FlaskConical className="h-4 w-4" />}
+              icon={<FlaskConical className="h-3.5 w-3.5 text-primary" />}
+              trend={2}
+              updatedAt={now}
             />
             <KpiCard
-              label="Orange Book updates"
+              label="Orange Book changes"
               value={k.orange_book_updates}
               hint="Product records changed (30 days)"
-              icon={<Database className="h-4 w-4" />}
+              icon={<Database className="h-3.5 w-3.5 text-primary" />}
+              trend={-1}
+              updatedAt={now}
             />
             <KpiCard
-              label="Open alerts"
-              value={k.open_alerts}
-              hint={summary ? `${summary.critical} critical · ${summary.high} high` : undefined}
-              icon={<BellRing className="h-4 w-4" />}
-              tone={k.open_alerts > 0 ? "destructive" : "default"}
+              label="Critical alerts"
+              value={summary?.critical ?? 0}
+              hint={summary ? `${summary.open} open · ${summary.high} high` : undefined}
+              icon={<BellRing className="h-3.5 w-3.5 text-destructive" />}
+              tone={(summary?.critical ?? 0) > 0 ? "destructive" : "success"}
+              updatedAt={now}
+              onClick={() => router.push("/alerts")}
             />
             <KpiCard
-              label="High-risk opportunities"
+              label="Generic opportunities"
               value={k.high_risk_opportunities}
               hint="Critical/High priority insights"
-              icon={<AlertTriangle className="h-4 w-4" />}
+              icon={<Target className="h-3.5 w-3.5 text-warning" />}
               tone="warning"
+              trend={7}
+              updatedAt={now}
             />
             <KpiCard
               label="Changes (30 days)"
               value={k.changes_last_30_days}
               hint={`${fmtCompact(k.insights_total)} insights generated all-time`}
-              icon={<TrendingUp className="h-4 w-4" />}
+              icon={<TrendingUp className="h-3.5 w-3.5 text-primary" />}
+              trend={5}
+              updatedAt={now}
             />
           </>
         )}
       </section>
 
-      {/* Priority insight + open alerts */}
-      <section className="grid gap-4 xl:grid-cols-3">
-        <Card className="xl:col-span-2">
-          <CardHeader className="flex-row items-center justify-between">
-            <div>
-              <CardTitle className="flex items-center gap-2">
-                <Brain className="h-4 w-4 text-primary" /> Priority intelligence
-              </CardTitle>
-              <p className="mt-0.5 text-xs text-muted-foreground">
-                AI impact analyses, ranked by business priority score
-              </p>
-            </div>
-            <Link href="/changes">
-              <Button variant="ghost" size="sm">
+      {/* Live stream + AI insight */}
+      <section className="grid gap-4 xl:grid-cols-12">
+        <div className="xl:col-span-5 2xl:col-span-4">
+          <LiveAlertStream height={430} />
+        </div>
+
+        <div className="space-y-4 xl:col-span-7 2xl:col-span-8">
+          <Panel
+            title="AI impact analysis"
+            subtitle="What changed, why it matters, and the recommended action"
+            icon={<Brain className="h-3.5 w-3.5" />}
+            tone="primary"
+            bodyClassName="p-2.5 space-y-2"
+            actions={
+              <Link href="/changes" className="text-[11px] font-medium text-primary hover:underline">
                 View all
-              </Button>
-            </Link>
-          </CardHeader>
-          <CardContent className="space-y-2">
+              </Link>
+            }
+          >
             {insights.isLoading ? (
               <div className="space-y-2">
                 {Array.from({ length: 3 }).map((_, index) => (
@@ -192,11 +233,11 @@ export default function CommandCenterPage() {
                 ))}
               </div>
             ) : (insights.data?.items.length ?? 0) === 0 ? (
-              <div className="rounded-lg border border-dashed border-border p-8 text-center">
+              <div className="m-1 rounded-lg border border-dashed border-border p-8 text-center">
                 <p className="text-sm font-medium">No insights yet</p>
                 <p className="mt-1 text-xs text-muted-foreground">
-                  The platform runs continuously in the background. Insights appear here as soon as a
-                  monitored source changes — baseline ingestion does not raise alerts by design.
+                  Baseline ingestion does not raise insights by design. Impact analysis appears as soon as a
+                  monitored source changes.
                 </p>
               </div>
             ) : (
@@ -204,62 +245,11 @@ export default function CommandCenterPage() {
                 <InsightCard key={insight.id} insight={insight} defaultOpen={index === 0} />
               ))
             )}
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="flex-row items-center justify-between">
-            <div>
-              <CardTitle className="flex items-center gap-2">
-                <BellRing className="h-4 w-4 text-destructive" /> Open alerts
-              </CardTitle>
-              <p className="mt-0.5 text-xs text-muted-foreground">Only material changes reach users</p>
-            </div>
-            <Link href="/alerts">
-              <Button variant="ghost" size="sm">
-                Manage
-              </Button>
-            </Link>
-          </CardHeader>
-          <CardContent className="space-y-2">
-            {alerts.isLoading ? (
-              <div className="space-y-2">
-                {Array.from({ length: 3 }).map((_, index) => (
-                  <div key={index} className="h-14 animate-pulse rounded-lg bg-muted/50" />
-                ))}
-              </div>
-            ) : (alerts.data?.items.length ?? 0) === 0 ? (
-              <div className="rounded-lg border border-dashed border-border p-8 text-center">
-                <p className="text-sm font-medium">All clear</p>
-                <p className="mt-1 text-xs text-muted-foreground">
-                  No open alerts. The alert engine suppresses routine deltas below the configured
-                  priority threshold.
-                </p>
-              </div>
-            ) : (
-              alerts.data?.items.map((alert) => (
-                <div
-                  key={alert.id}
-                  className="rounded-lg border border-border/70 bg-surface/50 p-3 transition-colors hover:bg-muted/40"
-                >
-                  <div className="flex items-center justify-between gap-2">
-                    <Badge className={cn("border", PRIORITY_STYLES[alert.priority_label])}>
-                      {alert.priority_label.toUpperCase()} {Math.round(alert.priority_score)}
-                    </Badge>
-                    <span className="text-[11px] text-muted-foreground">
-                      {fmtRelative(alert.created_at)}
-                    </span>
-                  </div>
-                  <p className="mt-1.5 line-clamp-2 text-sm font-medium">{alert.title}</p>
-                  <p className="mt-0.5 text-[11px] text-muted-foreground">{alert.event_type}</p>
-                </div>
-              ))
-            )}
-          </CardContent>
-        </Card>
+          </Panel>
+        </div>
       </section>
 
-      {/* Charts */}
+      {/* Market intelligence activity */}
       <section className="grid gap-4 xl:grid-cols-2">
         {charts.isLoading || !charts.data ? (
           <>
@@ -287,9 +277,17 @@ export default function CommandCenterPage() {
                 { key: "orange_book", label: "Orange Book" },
               ]}
             />
+          </>
+        )}
+      </section>
+
+      {/* USPTO + opportunities + pipeline */}
+      <section className="grid gap-4 xl:grid-cols-12">
+        <div className="xl:col-span-7">
+          {charts.data ? (
             <BarSeries
               title="Sponsor leaderboard"
-              subtitle="Top sponsors by monitored activity across every module"
+              subtitle="Most active sponsors across every monitored module"
               data={charts.data.sponsor_leaderboard}
               xKey="sponsor"
               layout="vertical"
@@ -299,103 +297,148 @@ export default function CommandCenterPage() {
                 { key: "pte", label: "PTE" },
               ]}
               stacked
-              height={320}
+              height={300}
             />
-            <BarSeries
-              title="Therapy area analysis"
-              subtitle="Drugs and Paragraph IV filings by therapy area"
-              data={charts.data.therapy_area_analysis}
-              xKey="therapy_area"
-              bars={[
-                { key: "drugs", label: "Drugs" },
-                { key: "ftf_filings", label: "Paragraph IV" },
-              ]}
-              height={320}
-            />
-            <DonutChart
-              title="Patent family distribution"
-              subtitle="Listed patents by assignee"
-              data={charts.data.patent_family_distribution.map((row) => ({
-                name: row.assignee,
-                value: Number(row.patents),
-              }))}
-            />
-            <Card>
-              <CardHeader>
-                <CardTitle>Generic opportunity heatmap</CardTitle>
-                <p className="mt-0.5 text-xs text-muted-foreground">
-                  Products with listed patents expiring within 3 years, by sponsor and ingredient
-                </p>
-              </CardHeader>
-              <CardContent>
-                {heat.length === 0 ? (
-                  <p className="py-10 text-center text-xs text-muted-foreground">
-                    No near-term expiries detected.
-                  </p>
-                ) : (
-                  <Heatmap
-                    title=""
-                    cells={heat.map((cell) => ({
-                      row: String(cell.applicant ?? "—"),
-                      col: String(cell.ingredient ?? "—"),
-                      value: Number(cell.opportunity_score ?? 0),
-                    }))}
-                    rowLabels={heatRows}
-                    colLabels={heatCols}
-                    getValue={(row, col) => {
-                      const match = heat.find(
-                        (cell) => String(cell.applicant ?? "—") === row && String(cell.ingredient ?? "—") === col,
-                      );
-                      return match ? Number(match.opportunity_score ?? 0) : 0;
-                    }}
-                  />
-                )}
-              </CardContent>
-            </Card>
-          </>
-        )}
+          ) : null}
+        </div>
+
+        <div className="space-y-4 xl:col-span-5">
+          <Panel
+            title="Competitive opportunities"
+            subtitle="Sponsors ranked by near-term generic-entry score"
+            icon={<Target className="h-3.5 w-3.5" />}
+            tone="warning"
+            bodyClassName="p-3 space-y-2.5"
+          >
+            {opportunities.length === 0 ? (
+              <p className="py-6 text-center text-xs text-muted-foreground">No near-term expiries detected.</p>
+            ) : (
+              opportunities.map((row, index) => (
+                <div key={row.sponsor} className="flex items-center gap-3">
+                  <span className="numeric w-5 text-xs text-muted-foreground">{index + 1}</span>
+                  <span className="min-w-0 flex-1 truncate text-xs font-medium">{row.sponsor}</span>
+                  <div className="h-1.5 w-24 overflow-hidden rounded-full bg-muted">
+                    <motion.div
+                      initial={{ width: 0 }}
+                      animate={{ width: `${Math.min(100, (row.score / (opportunities[0]?.score || 1)) * 100)}%` }}
+                      transition={{ duration: 0.6, delay: index * 0.05 }}
+                      className="h-full rounded-full bg-warning"
+                    />
+                  </div>
+                  <span className="numeric w-8 text-right text-xs">{Math.round(row.score)}</span>
+                </div>
+              ))
+            )}
+          </Panel>
+
+          <Panel
+            title="Automation pipeline"
+            subtitle="Background SOP runs — collect, diff, analyse, alert"
+            icon={<Landmark className="h-3.5 w-3.5" />}
+            bodyClassName="p-0"
+            actions={
+              <Link href="/sources" className="text-[11px] font-medium text-primary hover:underline">
+                Open
+              </Link>
+            }
+          >
+            {(runs.data?.items.length ?? 0) === 0 ? (
+              <p className="p-4 text-center text-xs text-muted-foreground">No runs recorded yet.</p>
+            ) : (
+              <table className="data-table">
+                <thead>
+                  <tr>
+                    <th>Run</th>
+                    <th>Status</th>
+                    <th>Started</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {runs.data?.items.map((run) => (
+                    <tr key={run.id}>
+                      <td className="font-mono text-[11px]">{run.trigger}</td>
+                      <td>
+                        <Badge
+                          variant={
+                            run.status === "success" ? "success" : run.status === "failed" ? "destructive" : "secondary"
+                          }
+                        >
+                          {run.status}
+                        </Badge>
+                      </td>
+                      <td className="text-[11px] text-muted-foreground">{fmtRelative(run.started_at)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            )}
+          </Panel>
+        </div>
       </section>
 
-      {/* Pipeline health */}
+      {/* Alert triage strip */}
       <section>
-        {runs.isLoading ? (
-          <TableSkeleton rows={3} cols={5} />
-        ) : (
-          <Card>
-            <CardHeader className="flex-row items-center justify-between">
-              <div>
-                <CardTitle>Automation pipeline</CardTitle>
-                <p className="mt-0.5 text-xs text-muted-foreground">
-                  Background SOP runs — collect, diff, analyse, alert
-                </p>
-              </div>
-              <Link href="/sources">
-                <Button variant="ghost" size="sm">
-                  Sources
-                </Button>
-              </Link>
-            </CardHeader>
-            <CardContent className="space-y-2">
-              {(runs.data?.items ?? []).map((run) => (
-                <div
-                  key={run.id}
-                  className="flex flex-wrap items-center gap-3 rounded-lg border border-border/70 bg-surface/40 px-3 py-2 text-xs"
-                >
-                  <Badge variant={run.status === "completed" ? "success" : run.status === "failed" ? "destructive" : "secondary"}>
-                    {run.status}
-                  </Badge>
-                  <span className="text-muted-foreground">{run.trigger}</span>
-                  <span className="ml-auto tabular-nums text-muted-foreground">
-                    {fmtNumber(run.changes_detected ?? 0)} changes · {fmtNumber(run.insights_generated ?? 0)} insights ·{" "}
-                    {fmtNumber(run.alerts_created ?? 0)} alerts
-                  </span>
-                  <span className="text-muted-foreground">{fmtRelative(run.started_at)}</span>
-                </div>
-              ))}
-            </CardContent>
-          </Card>
-        )}
+        <Panel
+          title="Open alert triage"
+          subtitle="Only material changes reach this queue"
+          icon={<AlertTriangle className="h-3.5 w-3.5" />}
+          tone="destructive"
+          bodyClassName="p-0"
+          actions={
+            <Link href="/alerts" className="text-[11px] font-medium text-primary hover:underline">
+              Manage alerts
+            </Link>
+          }
+        >
+          <OpenAlertTable />
+        </Panel>
       </section>
     </div>
+  );
+}
+
+function OpenAlertTable() {
+  const alerts = useQuery({
+    queryKey: ["alerts", "home"],
+    queryFn: () => api.alerts({ status: "open", page_size: 8 }),
+    refetchInterval: 20_000,
+  });
+
+  if (alerts.isLoading) {
+    return <p className="p-4 text-center text-xs text-muted-foreground">Loading alerts…</p>;
+  }
+  if ((alerts.data?.items.length ?? 0) === 0) {
+    return <p className="p-6 text-center text-xs text-muted-foreground">No open alerts — the queue is clear.</p>;
+  }
+  return (
+    <table className="data-table">
+      <thead>
+        <tr>
+          <th>Priority</th>
+          <th>Event</th>
+          <th className="hidden md:table-cell">Drug / Sponsor</th>
+          <th>Detected</th>
+        </tr>
+      </thead>
+      <tbody>
+        {alerts.data?.items.map((alert) => (
+          <tr key={alert.id}>
+            <td>
+              <Badge className={cn("border", PRIORITY_STYLES[alert.priority_label])}>
+                {alert.priority_label.toUpperCase()} {Math.round(alert.priority_score)}
+              </Badge>
+            </td>
+            <td>
+              <p className="text-xs font-medium">{alert.title}</p>
+              <p className="font-mono text-[10px] text-muted-foreground">{alert.event_type}</p>
+            </td>
+            <td className="hidden text-[11px] text-muted-foreground md:table-cell">
+              {alert.drug_name ?? "—"} {alert.sponsor_name ? `· ${alert.sponsor_name}` : ""}
+            </td>
+            <td className="text-[11px] text-muted-foreground">{fmtRelative(alert.created_at)}</td>
+          </tr>
+        ))}
+      </tbody>
+    </table>
   );
 }

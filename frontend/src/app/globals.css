@@ -3,67 +3,107 @@
 @tailwind utilities;
 
 @layer base {
+  /* Light theme — cool, high-legibility enterprise grey/blue. */
   :root {
-    --background: 210 40% 98%;
+    --background: 216 33% 97%;
     --foreground: 222 47% 11%;
     --surface: 0 0% 100%;
-    --surface-muted: 210 40% 96%;
+    --surface-muted: 214 32% 95%;
+    --panel: 0 0% 100%;
     --card: 0 0% 100%;
     --card-foreground: 222 47% 11%;
-    --primary: 221 83% 53%;
+    --primary: 217 91% 60%;
     --primary-foreground: 210 40% 98%;
     --secondary: 210 40% 94%;
     --secondary-foreground: 222 47% 11%;
     --muted: 210 40% 94%;
-    --muted-foreground: 215 16% 47%;
+    --muted-foreground: 215 16% 42%;
     --accent: 199 89% 48%;
     --accent-foreground: 210 40% 98%;
-    --destructive: 0 72% 51%;
+    --destructive: 0 84% 55%;
     --destructive-foreground: 210 40% 98%;
-    --success: 142 71% 45%;
+    --success: 160 84% 34%;
     --success-foreground: 210 40% 98%;
-    --warning: 38 92% 50%;
+    --warning: 38 92% 44%;
     --warning-foreground: 26 83% 14%;
-    --border: 214 32% 91%;
-    --input: 214 32% 91%;
-    --ring: 221 83% 53%;
+    --border: 214 32% 88%;
+    --input: 214 32% 88%;
+    --ring: 217 91% 60%;
     --radius: 0.75rem;
     --font-sans: "Inter", system-ui, sans-serif;
     --font-mono: "JetBrains Mono", ui-monospace, monospace;
     --sidebar: 222 47% 11%;
     --sidebar-foreground: 210 40% 96%;
     --elevate: 220 43% 99%;
-    --glow: 221 83% 53%;
+    --glow: 217 91% 60%;
+    --grid: 214 32% 80%;
   }
 
+  /* Enterprise dark theme — the default command-center look.
+     Background #0B1220 · Panel #111827 · Accent #3B82F6 · Text #F9FAFB. */
   .dark {
-    --background: 222 47% 6%;
-    --foreground: 210 40% 96%;
-    --surface: 222 40% 10%;
-    --surface-muted: 222 33% 14%;
-    --card: 222 40% 10%;
-    --card-foreground: 210 40% 96%;
-    --primary: 217 91% 62%;
-    --primary-foreground: 222 47% 8%;
+    --background: 220 49% 8%;
+    --foreground: 210 20% 98%;
+    --surface: 221 39% 11%;
+    --surface-muted: 221 33% 15%;
+    --panel: 221 39% 11%;
+    --card: 221 39% 11%;
+    --card-foreground: 210 20% 98%;
+    --primary: 217 91% 60%;
+    --primary-foreground: 220 49% 8%;
     --secondary: 217 33% 17%;
-    --secondary-foreground: 210 40% 96%;
+    --secondary-foreground: 210 20% 98%;
     --muted: 217 33% 17%;
-    --muted-foreground: 215 20% 68%;
+    --muted-foreground: 215 20% 66%;
     --accent: 190 95% 55%;
-    --accent-foreground: 222 47% 8%;
-    --destructive: 0 72% 58%;
-    --destructive-foreground: 210 40% 98%;
-    --success: 152 70% 48%;
-    --success-foreground: 222 47% 8%;
-    --warning: 38 96% 56%;
+    --accent-foreground: 220 49% 8%;
+    --destructive: 0 84% 60%;
+    --destructive-foreground: 210 20% 98%;
+    --success: 160 84% 39%;
+    --success-foreground: 220 49% 8%;
+    --warning: 38 92% 50%;
     --warning-foreground: 26 83% 10%;
-    --border: 217 33% 19%;
-    --input: 217 33% 21%;
-    --ring: 217 91% 62%;
-    --sidebar: 222 47% 9%;
-    --sidebar-foreground: 210 40% 96%;
-    --elevate: 222 40% 12%;
-    --glow: 217 91% 62%;
+    --border: 217 33% 20%;
+    --input: 217 33% 22%;
+    --ring: 217 91% 60%;
+    --sidebar: 221 44% 9%;
+    --sidebar-foreground: 210 20% 96%;
+    --elevate: 221 39% 13%;
+    --glow: 217 91% 60%;
+    --grid: 217 33% 22%;
+  }
+
+  /* High-contrast theme — WCAG-AA tuned for prolonged terminal use. */
+  .hc {
+    --background: 0 0% 0%;
+    --foreground: 0 0% 100%;
+    --surface: 0 0% 5%;
+    --surface-muted: 0 0% 10%;
+    --panel: 0 0% 5%;
+    --card: 0 0% 5%;
+    --card-foreground: 0 0% 100%;
+    --primary: 210 100% 66%;
+    --primary-foreground: 0 0% 0%;
+    --secondary: 0 0% 14%;
+    --secondary-foreground: 0 0% 100%;
+    --muted: 0 0% 14%;
+    --muted-foreground: 0 0% 82%;
+    --accent: 190 100% 60%;
+    --accent-foreground: 0 0% 0%;
+    --destructive: 0 100% 68%;
+    --destructive-foreground: 0 0% 0%;
+    --success: 150 100% 55%;
+    --success-foreground: 0 0% 0%;
+    --warning: 45 100% 60%;
+    --warning-foreground: 0 0% 0%;
+    --border: 0 0% 32%;
+    --input: 0 0% 32%;
+    --ring: 210 100% 66%;
+    --sidebar: 0 0% 0%;
+    --sidebar-foreground: 0 0% 100%;
+    --elevate: 0 0% 8%;
+    --glow: 210 100% 66%;
+    --grid: 0 0% 28%;
   }
 }
 
@@ -151,5 +191,86 @@
   .scrollbar-thin::-webkit-scrollbar-thumb {
     background: hsl(var(--border));
     border-radius: 9999px;
+  }
+
+  /* ---- Command-center primitives ------------------------------------- */
+
+  /* The standard terminal panel: 1px hairline, subtle top highlight. */
+  .panel {
+    @apply relative rounded-xl border border-border/70 bg-panel;
+    box-shadow:
+      inset 0 1px 0 0 hsl(var(--foreground) / 0.03),
+      0 1px 2px rgba(0, 0, 0, 0.08);
+  }
+  .hc .panel {
+    @apply border-2;
+  }
+
+  /* Dense section header inside a terminal panel. */
+  .panel-head {
+    @apply flex items-center gap-2 border-b border-border/60 px-3 py-2;
+  }
+  .panel-title {
+    @apply text-[11px] font-semibold uppercase tracking-[0.14em] text-muted-foreground;
+  }
+
+  /* Bloomberg-style ticker strip. */
+  .ticker-strip {
+    @apply flex items-stretch overflow-hidden border-b border-border/70 bg-surface/40;
+  }
+  .ticker-cell {
+    @apply flex min-w-[128px] flex-1 items-center gap-2 border-r border-border/50 px-3 py-1.5;
+  }
+
+  /* Live status dot with an expanding ring. */
+  .live-dot {
+    @apply relative inline-flex h-2 w-2 rounded-full bg-success;
+  }
+  .live-dot::after {
+    content: "";
+    position: absolute;
+    inset: -3px;
+    border-radius: 9999px;
+    border: 1px solid hsl(var(--success) / 0.6);
+    animation: pulse-ring 2s infinite;
+  }
+
+  /* Monospaced numeric readout used across KPIs and tables. */
+  .numeric {
+    font-variant-numeric: tabular-nums;
+    letter-spacing: -0.01em;
+  }
+
+  /* Scanline sheen that sweeps across live panels. */
+  .sheen::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(
+      100deg,
+      transparent 30%,
+      hsl(var(--primary) / 0.07) 50%,
+      transparent 70%
+    );
+    transform: translateX(-100%);
+    animation: shimmer 4.5s infinite;
+    pointer-events: none;
+  }
+
+  /* Thin colored bar at the top of a KPI card, tinted by tone. */
+  .kpi-topline::before {
+    content: "";
+    position: absolute;
+    inset-inline: 0;
+    top: 0;
+    height: 2px;
+    background: linear-gradient(90deg, hsl(var(--kpi-tone, var(--primary))), transparent);
+  }
+
+  .grid-lines {
+    background-image:
+      linear-gradient(to right, hsl(var(--grid) / 0.35) 1px, transparent 1px),
+      linear-gradient(to bottom, hsl(var(--grid) / 0.35) 1px, transparent 1px);
+    background-size: 40px 40px;
   }
 }

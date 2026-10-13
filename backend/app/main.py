@@ -42,6 +42,9 @@ from app.api.routers import (
     orange_book as ob_router,
 )
 from app.api.routers import (
+    ops as ops_router,
+)
+from app.api.routers import (
     pde as pde_router,
 )
 from app.api.routers import (
@@ -186,6 +189,7 @@ def create_app() -> FastAPI:
     app.include_router(pte_router.router, prefix=prefix)
     app.include_router(pde_router.router, prefix=prefix)
     app.include_router(ob_router.router, prefix=prefix)
+    app.include_router(ops_router.router, prefix=prefix)
     app.include_router(intelligence_router.router, prefix=prefix)
     app.include_router(alerts_router.router, prefix=prefix)
     app.include_router(search_router.router, prefix=prefix)

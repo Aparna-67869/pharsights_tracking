@@ -196,6 +196,14 @@ def dispatch_alerts(session: Session, *, insights: list[Insight] | None = None) 
         if alert is None:
             continue
         dispatch_alert(session, alert)
+        # Fan out to per-user subscriptions: email + Teams are addressed to each
+        # subscriber's authenticated identity, so no per-user configuration.
+        try:
+            from app.services.alert_dispatcher import dispatch_to_subscribers
+
+            dispatch_to_subscribers(session, alert)
+        except Exception as exc:  # pragma: no cover - never break the pipeline
+            log.warning("subscriber dispatch failed for alert %s: %s", alert.id, exc)
         created.append(alert)
 
     log.info("alert engine: created and dispatched %d alerts", len(created))

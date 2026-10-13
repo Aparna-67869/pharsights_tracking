@@ -461,3 +461,54 @@ class AuditLogOut(ORMModel):
     resource_id: str | None = None
     detail: dict[str, Any] | None = None
     created_at: datetime
+
+
+class AlertSubscriptionIn(BaseModel):
+    name: str | None = None
+    modules: list[str] = Field(default_factory=list)
+    sponsors: list[str] = Field(default_factory=list)
+    drugs: list[str] = Field(default_factory=list)
+    patents: list[str] = Field(default_factory=list)
+    therapy_areas: list[str] = Field(default_factory=list)
+    min_priority: int = Field(40, ge=0, le=100)
+    channels: list[str] = Field(default_factory=lambda: ["dashboard", "email", "teams"])
+    is_active: bool = True
+
+
+class AlertSubscriptionOut(ORMModel):
+    id: str
+    user_email: str
+    name: str | None = None
+    modules: list[str] = Field(default_factory=list)
+    sponsors: list[str] = Field(default_factory=list)
+    drugs: list[str] = Field(default_factory=list)
+    patents: list[str] = Field(default_factory=list)
+    therapy_areas: list[str] = Field(default_factory=list)
+    min_priority: int = 40
+    channels: list[str] = Field(default_factory=list)
+    is_active: bool = True
+    created_at: datetime
+
+
+class AuditLogEntryOut(BaseModel):
+    id: str
+    actor: str | None = None
+    action: str
+    resource_type: str | None = None
+    resource_id: str | None = None
+    detail: dict[str, Any] | None = None
+    ip_address: str | None = None
+    created_at: str | None = None
+
+
+class OpportunityOut(BaseModel):
+    appl_no: str
+    ingredient: str
+    trade_name: str | None = None
+    applicant: str | None = None
+    patent_number: str
+    expiration_date: str | None = None
+    months_to_expiry: int | None = None
+    opportunity_score: float
+    band: str
+    rationale: str

@@ -20,6 +20,9 @@ const config: Config = {
           DEFAULT: "hsl(var(--surface))",
           muted: "hsl(var(--surface-muted))",
         },
+        panel: {
+          DEFAULT: "hsl(var(--panel))",
+        },
         primary: {
           DEFAULT: "hsl(var(--primary))",
           foreground: "hsl(var(--primary-foreground))",

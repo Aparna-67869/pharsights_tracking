@@ -70,6 +70,54 @@ def test_viewer_role_cannot_trigger_pipeline(client):
     assert response.status_code in {401, 403}
 
 
+def test_opportunity_engine_returns_watchlist(client):
+    token = _token(client, "tester@pharma-intel.local", "TestPass!234")
+    response = client.get("/api/v1/opportunities", headers={"Authorization": f"Bearer {token}"})
+    assert response.status_code == 200, response.text
+    body = response.json()
+    assert "total" in body and "by_band" in body and "top" in body
+
+
+def test_audit_trail_records_logins(client):
+    token = _token(client, "tester@pharma-intel.local", "TestPass!234")
+    response = client.get("/api/v1/audit", headers={"Authorization": f"Bearer {token}"})
+    assert response.status_code == 200, response.text
+    entries = response.json()
+    assert isinstance(entries, list)
+    if entries:
+        assert {"actor", "action", "resource_type"} <= set(entries[0].keys())
+
+
+def test_alert_subscription_lifecycle(client):
+    """Create -> list -> delete a subscription scoped to the authenticated user."""
+    token = _token(client, "tester@pharma-intel.local", "TestPass!234")
+    headers = {"Authorization": f"Bearer {token}"}
+
+    created = client.post(
+        "/api/v1/subscriptions",
+        headers=headers,
+        json={
+            "name": "Oncology FTF",
+            "modules": ["ftf"],
+            "therapy_areas": ["oncology"],
+            "min_priority": 60,
+            "channels": ["dashboard", "email", "teams"],
+        },
+    )
+    assert created.status_code == 201, created.text
+    subscription = created.json()
+    assert subscription["user_email"] == "tester@pharma-intel.local"
+    assert subscription["channels"] == ["dashboard", "email", "teams"]
+
+    listed = client.get("/api/v1/subscriptions", headers=headers)
+    assert listed.status_code == 200
+    assert any(item["id"] == subscription["id"] for item in listed.json())
+
+    deleted = client.delete(f"/api/v1/subscriptions/{subscription['id']}", headers=headers)
+    assert deleted.status_code == 200
+    assert deleted.json()["deleted"] is True
+
+
 def test_viewer_role_can_read_every_module(client):
     """A read-only viewer must reach the module endpoints, not get 'insufficient
     permissions' on them. Regression: the viewer role held only ``read:public``

@@ -9,7 +9,9 @@
 import type {
   ActiveMoiety,
   Alert,
+  AlertSubscription,
   AlertSummary,
+  AuditLogEntry,
   CopilotAnswer,
   DashboardCharts,
   DetectedChange,
@@ -19,6 +21,7 @@ import type {
   GraphStats,
   Insight,
   Kpis,
+  OpportunitySummary,
   OrangeBookPatent,
   OrangeBookProduct,
   OrangeBookSummary,
@@ -280,6 +283,15 @@ export const api = {
       method: "POST",
       body: JSON.stringify(body),
     }),
+
+  // ---- Operations: audit, opportunities, subscriptions ----
+  audit: (limit = 50) => request<AuditLogEntry[]>(`/audit${qs({ limit })}`),
+  opportunities: () => request<OpportunitySummary>("/opportunities"),
+  subscriptions: () => request<AlertSubscription[]>("/subscriptions"),
+  createSubscription: (body: Record<string, unknown>) =>
+    request<AlertSubscription>("/subscriptions", { method: "POST", body: JSON.stringify(body) }),
+  deleteSubscription: (id: string) =>
+    request<{ deleted: boolean }>(`/subscriptions/${id}`, { method: "DELETE" }),
 
   // ---- Saved views ----
   savedViews: () => request<SavedView[]>("/dashboard/views"),

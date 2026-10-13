@@ -71,6 +71,39 @@ The SOP mandates that each module mirrors what the analyst sees on the source pa
   set false in production). Email validation is deliberately pragmatic so the
   internal `@pharma-intel.local` domain (which strict validators reject) works.
 
+## Enterprise shell & design system
+
+- One shell (`components/layout/app-shell.tsx`) wraps every dashboard route:
+  a Bloomberg-style top bar with global search, a collapsible grouped left nav
+  (`nav-config.ts`), the live ticker strip, and the Copilot drawer. Pages render
+  only their own body.
+- `globals.css` owns the design tokens. Three themes cycle dark → light →
+  high-contrast via `theme-provider.tsx` (localStorage key `pharma.theme`).
+  Premium primitive classes there: `panel`, `glass`, `ticker`, `live-dot`,
+  `data-table`, `scrollbar-thin`. Prefer these over one-off utility soup.
+- `components/ui/card.tsx` now renders the `panel` surface so older module pages
+  inherit the redesign without edits. `components/common/panel.tsx` is the
+  richer variant (icon, tone, actions) used by the newer pages.
+- KPI wall uses `components/common/kpi-card.tsx` (label, value, hint, icon,
+  tone, trend, series, updatedAt, onClick). `onClick` should navigate to the
+  drill-down route, not be a no-op.
+
+## Operations API (added with the enterprise redesign)
+
+- `GET /api/v1/audit` — read the immutable `audit_logs` trail. Ordering and the
+  `created_at` output field both derive from the model's `occurred_at`; there is
+  no `created_at` column.
+- `GET /api/v1/opportunities` — scored near-term generic-entry watchlist
+  (`{total, by_band, top, sponsor_leaderboard}`).
+- `GET/POST/DELETE /api/v1/subscriptions` — per-user alert subscriptions. Delivery
+  targets are addressed to the authenticated identity (email + Teams), so users
+  configure nothing beyond which modules/priority they care about.
+- Alert fan-out: `app/alerts/engine.py` calls
+  `alert_dispatcher.dispatch_to_subscribers` after creating each alert. Keep that
+  call inside its try/except — subscriber delivery must never break the pipeline.
+- `DetectedChange` uses `document_id` (not `source_document_id`);
+  `PipelineRun` uses `trigger` (not `kind`).
+
 ## Gotchas
 
 - `backend/app/copilot/agent.py` uses `OrangeBookPatent` — it must stay imported from

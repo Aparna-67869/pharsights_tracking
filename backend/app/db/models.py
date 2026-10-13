@@ -719,3 +719,27 @@ class DocumentChunk(Base, UUIDPrimaryKey, TimestampMixin):
     metadata_json: Mapped[dict[str, Any]] = mapped_column("metadata", JSON, default=dict)
 
     __table_args__ = (Index("ix_chunks_source", "source_type", "source_id"),)
+
+
+class AlertSubscription(Base, UUIDPrimaryKey, TimestampMixin):
+    """A user's standing interest in a module, sponsor, drug, patent or area.
+
+    Delivery is driven off the authenticated identity: email and Microsoft Teams
+    notifications are addressed to the signed-in user, so no per-user SMTP or
+    webhook configuration is required.
+    """
+
+    __tablename__ = "alert_subscriptions"
+
+    user_id: Mapped[str] = mapped_column(ForeignKey("users.id"), index=True)
+    user_email: Mapped[str] = mapped_column(String(320), index=True)
+    name: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    # A subscription can filter by any combination of these; empty = all.
+    modules: Mapped[list[str]] = mapped_column(JSON, default=list)  # ftf|pte|pde|orange_book
+    sponsors: Mapped[list[str]] = mapped_column(JSON, default=list)
+    drugs: Mapped[list[str]] = mapped_column(JSON, default=list)
+    patents: Mapped[list[str]] = mapped_column(JSON, default=list)
+    therapy_areas: Mapped[list[str]] = mapped_column(JSON, default=list)
+    min_priority: Mapped[int] = mapped_column(Integer, default=40)
+    channels: Mapped[list[str]] = mapped_column(JSON, default=lambda: ["dashboard", "email", "teams"])
+    is_active: Mapped[bool] = mapped_column(Boolean, default=True, index=True)

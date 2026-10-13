@@ -385,4 +385,54 @@ export interface RealtimeEvent {
   topic: string;
   event_type?: string;
   payload: Record<string, unknown>;
+  event_id?: string;
+  occurred_at?: string;
+  source?: string;
+  version?: number;
+}
+
+export interface AuditLogEntry {
+  id: string;
+  actor?: string | null;
+  action: string;
+  resource_type?: string | null;
+  resource_id?: string | null;
+  detail?: Record<string, unknown> | null;
+  ip_address?: string | null;
+  created_at?: string | null;
+}
+
+export interface Opportunity {
+  appl_no: string;
+  ingredient: string;
+  trade_name?: string | null;
+  applicant?: string | null;
+  patent_number: string;
+  expiration_date?: string | null;
+  months_to_expiry?: number | null;
+  opportunity_score: number;
+  band: string;
+  rationale: string;
+}
+
+export interface OpportunitySummary {
+  total: number;
+  by_band: Record<string, number>;
+  top: Opportunity[];
+  sponsor_leaderboard: Array<{ sponsor: string; score: number }>;
+}
+
+export interface AlertSubscription {
+  id: string;
+  user_email: string;
+  name?: string | null;
+  modules: string[];
+  sponsors: string[];
+  drugs: string[];
+  patents: string[];
+  therapy_areas: string[];
+  min_priority: number;
+  channels: string[];
+  is_active: boolean;
+  created_at: string;
 }
