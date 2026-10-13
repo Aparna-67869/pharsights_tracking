@@ -82,7 +82,6 @@ export default function ExecutivePage() {
               hint="Critical-priority changes requiring attention"
               icon={<AlertTriangle className="h-3.5 w-3.5 text-destructive" />}
               tone={(summary?.critical ?? 0) > 0 ? "destructive" : "success"}
-              trend={4}
             />
             <KpiCard
               label="Patent opportunities"
@@ -90,7 +89,6 @@ export default function ExecutivePage() {
               hint="Listed expiries inside the entry window"
               icon={<Target className="h-3.5 w-3.5 text-warning" />}
               tone="warning"
-              trend={8}
             />
             <KpiCard
               label="Patents expiring ≤24m"
@@ -98,7 +96,6 @@ export default function ExecutivePage() {
               hint="Near-term revenue-at-risk ceiling"
               icon={<CalendarClock className="h-3.5 w-3.5 text-warning" />}
               tone="warning"
-              trend={-2}
             />
             <KpiCard
               label="Open alerts"
@@ -260,13 +257,14 @@ export default function ExecutivePage() {
         ) : (
           <>
             <BarSeries
-              title="Recent FDA activity by therapy area"
-              subtitle="Drugs and Paragraph IV filings per therapeutic area"
-              data={charts.data.therapy_area_analysis}
-              xKey="therapy_area"
+              title="Regulatory activity by month"
+              subtitle="New records per module as published by the regulator"
+              data={charts.data.monthly_fda_activity}
+              xKey="period"
               bars={[
-                { key: "drugs", label: "Drugs" },
-                { key: "ftf_filings", label: "Paragraph IV" },
+                { key: "ftf", label: "Paragraph IV" },
+                { key: "pte", label: "PTE filings" },
+                { key: "orange_book", label: "Orange Book" },
               ]}
               height={300}
             />

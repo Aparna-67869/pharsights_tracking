@@ -27,55 +27,17 @@ from app.db.models import Drug, Patent, Sponsor
 
 log = get_logger(__name__)
 
-# Therapy-area inference from ingredient keywords. Deliberately conservative:
-# only unambiguous markers are mapped so we never mislabel a product.
-THERAPY_AREA_KEYWORDS: dict[str, tuple[str, ...]] = {
-    "Oncology": (
-        "nib", "mab", "ciclib", "platin", "taxel", "ubicin", "trexed", "arabine",
-        "antineoplast", "cancer", "tumor", "tumour", "leukemia", "lymphoma",
-        "melanoma", "carcinoma", "sarcoma", "myeloma", "glioma", "oncolytic",
-    ),
-    "Immunology": (
-        "immunosuppress", "interferon", "interleukin", "tnf", "jak", "biologic",
-        "autoimmune", "arthritis", "psoriasis", "lupus", "crohn", "colitis",
-    ),
-    "Antiviral": (
-        "vir", "antiviral", "hiv", "hepatitis", "influenza", "herpes", "covid",
-        "remdesivir", "sofosbuvir", "tenofovir", "ritonavir", "nirmatrelvir",
-    ),
-    "Cardiovascular": (
-        "statin", "sartan", "pril", "olol", "cardiac", "hypertension",
-        "anticoagulant", "antithrombotic", "atrial", "cholesterol",
-    ),
-    "Diabetes": (
-        "insulin", "gliflozin", "gliptin", "glitazone", "metformin", "sglt2",
-        "glp-1", "semaglutide", "liraglutide", "dulaglutide", "tirzepatide",
-    ),
-    "Neurology": (
-        "epilep", "seizure", "parkinson", "alzheimer", "migraine", "neuro",
-        "antipsychotic", "antidepressant", "ssri", "benzodiazep",
-    ),
-    "Anti-infective": (
-        "cillin", "cycline", "mycin", "floxacin", "azole", "cephalosporin",
-        "antibiotic", "antifungal", "penem", "bactam",
-    ),
-    "Respiratory": (
-        "corticosteroid", "bronchodilator", "asthma", "copd", "inhal",
-        "montelukast", "omalizumab",
-    ),
-    "Ophthalmology": ("ophthalmic", "intravitreal", "macular", "glaucoma", "retina"),
-    "Gastroenterology": ("proton", "prazole", "antiemetic", "gastro", "ibd"),
-    "Rare disease": ("orphan", "enzyme replacement", "lysosomal", "fabry", "gaucher"),
-}
-
 
 def infer_therapy_area(*names: str | None) -> str | None:
-    blob = " ".join(n for n in names if n).casefold()
-    if not blob:
-        return None
-    for area, keywords in THERAPY_AREA_KEYWORDS.items():
-        if any(keyword in blob for keyword in keywords):
-            return area
+    """Always ``None`` — the platform does not guess therapy areas.
+
+    The FDA/USPTO sources this platform ingests carry no therapy-area field, so
+    there is no authoritative value to store. A drug's therapy area is left
+    unset until a source that actually publishes one is wired in (e.g. a curated
+    indication feed); it is never inferred from an ingredient's spelling, which
+    produced wrong labels such as Abrocitinib (atopic dermatitis) → Oncology on
+    the strength of the "nib" suffix.
+    """
     return None
 
 

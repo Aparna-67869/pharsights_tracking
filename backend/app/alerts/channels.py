@@ -8,7 +8,6 @@ webhook is missing. The dashboard channel is always available.
 from __future__ import annotations
 
 import json
-import smtplib
 from dataclasses import dataclass
 from email.message import EmailMessage
 from typing import Any, Protocol
@@ -18,6 +17,7 @@ import httpx
 from app.core.config import settings
 from app.core.logging import get_logger
 from app.core.text import clean_text
+from app.services.email_service import deliver
 
 log = get_logger(__name__)
 
@@ -100,11 +100,7 @@ class EmailChannel:
             message["From"] = settings.smtp_from
             message["To"] = ", ".join(settings.alert_email_recipients)
             message.set_content(_format_text(alert))
-            with smtplib.SMTP(settings.smtp_host, settings.smtp_port, timeout=30) as server:
-                server.starttls()
-                if settings.smtp_username and settings.smtp_password:
-                    server.login(settings.smtp_username, settings.smtp_password)
-                server.send_message(message)
+            deliver(message)
             return DeliveryResult(
                 channel=self.name,
                 status="sent",

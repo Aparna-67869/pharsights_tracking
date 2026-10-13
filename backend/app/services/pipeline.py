@@ -60,11 +60,13 @@ class PipelineResult:
 
 
 # Maps a source code to the loader that persists its records.
-# Note: the FTF PDF is collected and versioned for cross-validation against the
-# Excel workbook, but only the Excel (authoritative, machine-readable) edition
-# is loaded as fact rows — otherwise the same filing would be stored twice.
+# FTF fact rows come from the *official PDF* the SOP points at
+# (fda.gov/media/166048/download) so every value the dashboard shows is the
+# published text. The Excel companion is collected and versioned alongside it
+# for cross-validation, but is not loaded as facts — that would store every
+# filing twice.
 LOADERS: dict[str, Callable[..., Any]] = {
-    "fda_ftf_ppiv_excel": loader.load_ftf,
+    "fda_ftf_ppiv_pdf": loader.load_ftf,
     "uspto_pte_applications": loader.load_pte_applications,
     "uspto_pte_certificates": loader.load_pte_certificates,
     "fda_pde_approved_active_moiety": loader.load_active_moieties,
@@ -215,6 +217,9 @@ def run_pipeline(
                 result.sources_changed += 1
             if outcome.get("status") == "failed":
                 result.errors.append(f"{source.code}: {outcome.get('error')}")
+            # Publish this source's work and release the SQLite write lock so the
+            # API stays responsive (logins, alert updates) during a long run.
+            session.commit()
 
         # Count detected changes produced by this run (baseline excluded).
         result.changes_detected = session.scalar(
@@ -226,21 +231,25 @@ def run_pipeline(
         if progress:
             progress("resolving entities")
         link_records(session)
+        session.commit()
 
         if not skip_graph:
             if progress:
                 progress("rebuilding knowledge graph")
             rebuild_graph(session)
+            session.commit()
 
         if not skip_index:
             if progress:
                 progress("indexing for search and RAG")
             index_all(session)
+            session.commit()
 
         if progress:
             progress("generating insights")
         insights = analyze_pending_changes(session)
         result.insights_generated = len(insights)
+        session.commit()
 
         if not skip_alerts:
             if progress:
@@ -249,6 +258,7 @@ def run_pipeline(
 
             alerts = dispatch_alerts(session, insights=insights)
             result.alerts_created = len(alerts)
+            session.commit()
 
         result.status = "completed" if not result.errors else "completed_with_errors"
         result.duration_ms = int((time.time() - started) * 1000)

@@ -35,7 +35,10 @@ export interface FtfRecord {
   last_qualifying_patent_expiry?: string | null;
   certification_type?: string | null;
   source_code: string;
+  source_key?: string;
   first_seen_at: string;
+  last_seen_at?: string | null;
+  raw?: Record<string, string> | null;
   drug_id?: string | null;
   patent_id?: string | null;
 }
@@ -51,6 +54,8 @@ export interface PteApplication {
   sponsor_name?: string | null;
   status?: string | null;
   source_code: string;
+  source_key?: string | null;
+  raw?: Record<string, string> | null;
 }
 
 export interface PteCertificate {
@@ -66,6 +71,9 @@ export interface PteCertificate {
   granted_date?: string | null;
   status?: string | null;
   source_code: string;
+  source_key?: string | null;
+  first_seen_at?: string | null;
+  raw?: Record<string, string> | null;
 }
 
 export interface ActiveMoiety {
@@ -76,6 +84,9 @@ export interface ActiveMoiety {
   approval_year?: number | null;
   status?: string | null;
   source_code: string;
+  source_key?: string | null;
+  first_seen_at?: string | null;
+  raw?: Record<string, string> | null;
   drug_id?: string | null;
 }
 
@@ -95,6 +106,9 @@ export interface OrangeBookProduct {
   rld?: boolean | null;
   rs?: boolean | null;
   product_type?: string | null;
+  source_code?: string | null;
+  source_key?: string | null;
+  raw?: Record<string, string> | null;
 }
 
 export interface OrangeBookPatent {
@@ -435,4 +449,69 @@ export interface AlertSubscription {
   channels: string[];
   is_active: boolean;
   created_at: string;
+}
+
+
+export interface SourceDocumentMeta {
+  module: string;
+  source_code: string;
+  source_name?: string | null;
+  version?: number;
+  filename?: string | null;
+  content_type?: string | null;
+  document_kind?: string;
+  byte_size?: number | null;
+  record_count?: number | null;
+  publication_date?: string | null;
+  publication_label?: string | null;
+  fetched_at?: string | null;
+  last_processed_at?: string | null;
+  download_url?: string | null;
+  official_site_url?: string | null;
+  official_document_label?: string | null;
+  official_document_available?: boolean;
+  official_view_endpoint?: string | null;
+  official_download_endpoint?: string | null;
+  view_url?: string;
+  download_endpoint?: string;
+  document_id?: string | null;
+  storage_backend?: string;
+}
+
+export interface ModuleComparison {
+  module: string;
+  source_code?: string;
+  previous?: {
+    id: string;
+    version: number;
+    filename?: string | null;
+    publication_date?: string | null;
+    publication_label?: string | null;
+    record_count?: number | null;
+    fetched_at?: string | null;
+    download_url?: string | null;
+  } | null;
+  current?: {
+    id: string;
+    version: number;
+    filename?: string | null;
+    publication_date?: string | null;
+    publication_label?: string | null;
+    record_count?: number | null;
+    fetched_at?: string | null;
+    download_url?: string | null;
+  } | null;
+  summary?: { added: number; removed: number; updated: number; net: number };
+  added: ModuleDelta[];
+  removed: ModuleDelta[];
+  updated: ModuleDelta[];
+}
+
+export interface ModuleDelta {
+  id: string;
+  source_key?: string | null;
+  entity_type?: string | null;
+  change_type: string;
+  detected_at?: string | null;
+  fields?: (string | null)[];
 }

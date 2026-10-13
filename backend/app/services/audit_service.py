@@ -14,6 +14,7 @@ from sqlalchemy.orm import Session
 
 from app.api.deps import audit as _audit
 from app.core.logging import get_logger
+from app.db.models import AuditLog
 
 log = get_logger(__name__)
 
@@ -28,6 +29,11 @@ def record(
     detail: dict[str, Any] | None = None,
     request: Request | None = None,
 ) -> None:
+    """Write an audit row in the caller's transaction, best-effort.
+
+    Shares the caller's session so the row commits atomically with the action it
+    records and never tries to take a second write lock the caller already holds.
+    """
     try:
         _audit(
             session,
@@ -40,6 +46,55 @@ def record(
         )
     except Exception as exc:  # pragma: no cover - defensive
         log.warning("audit write failed for %s/%s: %s", resource_type, action, exc)
+
+
+def build_entry(
+    *,
+    actor: str | None,
+    action: str,
+    resource_type: str,
+    resource_id: str | None = None,
+    detail: dict[str, Any] | None = None,
+    request: Request | None = None,
+) -> AuditLog:
+    """Build (but do not persist) an audit row."""
+    return AuditLog(
+        actor=actor,
+        action=action,
+        resource_type=resource_type,
+        resource_id=resource_id,
+        detail=detail or {},
+        ip_address=request.client.host if request and request.client else None,
+        user_agent=request.headers.get("user-agent") if request else None,
+    )
+
+
+def record_detached(
+    *,
+    actor: str | None,
+    action: str,
+    resource_type: str,
+    resource_id: str | None = None,
+    detail: dict[str, Any] | None = None,
+    request: Request | None = None,
+) -> None:
+    """Write an audit row on a dedicated, retrying session.
+
+    For requests that only read (e.g. login): they hold no write lock, so a
+    separate session can write the row without the read-then-write snapshot
+    upgrade that SQLite refuses. Best-effort — a lock is retried, never raised.
+    """
+    from app.db.session import resilient_write
+
+    entry = build_entry(
+        actor=actor,
+        action=action,
+        resource_type=resource_type,
+        resource_id=resource_id,
+        detail=detail,
+        request=request,
+    )
+    resilient_write(lambda s: s.add(entry))
 
 
 def record_search(session: Session, *, actor: str | None, query: str, total: int, request: Request | None = None) -> None:
@@ -77,6 +132,20 @@ def record_alert_action(session: Session, *, actor: str | None, alert_id: str, s
         resource_id=alert_id,
         request=request,
     )
+
+
+def last_processed_at(session: Session, module: str) -> str | None:
+    """When a module's data was last successfully refreshed (pipeline finish)."""
+    from sqlalchemy import select
+
+    from app.db.models import PipelineRun
+
+    run = session.scalars(
+        select(PipelineRun)
+        .where(PipelineRun.status.in_(("completed", "completed_with_errors")))
+        .order_by(PipelineRun.finished_at.desc())
+    ).first()
+    return run.finished_at.isoformat() if run and run.finished_at else None
 
 
 def recent(session: Session, *, limit: int = 50, actor: str | None = None) -> list[dict[str, Any]]:

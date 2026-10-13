@@ -10,7 +10,10 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { DataTable, type Column } from "@/components/tables/data-table";
 import { AreaTrend, BarSeries } from "@/components/charts/charts";
 import { KpiCard } from "@/components/common/kpi-card";
-import { fmtDate, fmtExtension, fmtNumber } from "@/lib/format";
+import { SourceProvenance } from "@/components/common/source-provenance";
+import { OfficialSourceBanner } from "@/components/common/official-source-banner";
+import { SourceCells } from "@/components/common/source-cells";
+import { fmtDate, fmtExtension, fmtNumber, rawValue } from "@/lib/format";
 import { useDebounced } from "@/hooks/use-debounce";
 import type { PteApplication, PteCertificate } from "@/types/api";
 
@@ -27,6 +30,8 @@ export default function PtePage() {
           Applications under 35 U.S.C. §156 and the certificates granting extended term, monitored from the
           USPTO register.
         </p>
+        <OfficialSourceBanner module="pte" />
+        <SourceProvenance module="pte" />
       </header>
 
       <PteSummary />
@@ -89,21 +94,39 @@ function ApplicationsTable() {
   const query = useQuery({ queryKey: ["pte-applications", params], queryFn: () => api.pteApplications(params) });
 
   const columns: Column<PteApplication>[] = [
-    { key: "patent_number", header: "Patent", render: (row) => <span className="font-mono text-xs">{row.patent_number}</span> },
+    {
+      key: "patent_number",
+      header: "Patent",
+      render: (row) => (
+        <span className="font-mono text-xs">
+          {rawValue(row, "U.S. Patent No", "patent_number") ?? "—"}
+        </span>
+      ),
+    },
     {
       key: "trade_name",
       header: "Product",
       render: (row) => (
         <div>
-          <p className="font-medium">{row.trade_name ?? row.generic_name ?? "—"}</p>
-          {row.generic_name && row.trade_name ? (
-            <p className="text-[11px] text-muted-foreground">{row.generic_name}</p>
+          <p className="font-medium">{rawValue(row, "Product", "trade_name") ?? "—"}</p>
+          {rawValue(row, "Generic Name", "generic_name") ? (
+            <p className="text-[11px] text-muted-foreground">
+              {rawValue(row, "Generic Name", "generic_name")}
+            </p>
           ) : null}
         </div>
       ),
     },
-    { key: "application_number", header: "Application", render: (row) => <span className="font-mono text-xs">{row.application_number}</span> },
-    { key: "sponsor_name", header: "Sponsor", render: (row) => row.sponsor_name ?? "—" },
+    {
+      key: "application_number",
+      header: "Application",
+      render: (row) => (
+        <span className="font-mono text-xs">
+          {rawValue(row, "U.S. Application No", "application_number") ?? "—"}
+        </span>
+      ),
+    },
+    { key: "sponsor_name", header: "Sponsor", render: (row) => rawValue(row, "Sponsor", "sponsor_name") ?? "—" },
     { key: "filing_date", header: "Filed", render: (row) => fmtDate(row.filing_date) },
     {
       key: "status",
@@ -129,6 +152,7 @@ function ApplicationsTable() {
       onSearch={setSearch}
       searchPlaceholder="Search patent, trade or generic name…"
       exportPath="/pte/export/applications"
+      renderDetail={(row) => <SourceCells raw={row.raw} />}
       filters={
         <div className="flex items-center gap-1.5">
           <span className="text-[11px] text-muted-foreground">Filed from</span>
@@ -155,20 +179,30 @@ function CertificatesTable() {
   const query = useQuery({ queryKey: ["pte-certificates", params], queryFn: () => api.pteCertificates(params) });
 
   const columns: Column<PteCertificate>[] = [
-    { key: "patent_number", header: "Patent", render: (row) => <span className="font-mono text-xs">{row.patent_number}</span> },
+    {
+      key: "patent_number",
+      header: "Patent",
+      render: (row) => (
+        <span className="font-mono text-xs">
+          {rawValue(row, "Patent No", "patent_number") ?? "—"}
+        </span>
+      ),
+    },
     {
       key: "trade_name",
       header: "Product",
       render: (row) => (
         <div>
-          <p className="font-medium">{row.trade_name ?? row.generic_name ?? "—"}</p>
-          {row.generic_name && row.trade_name ? (
-            <p className="text-[11px] text-muted-foreground">{row.generic_name}</p>
+          <p className="font-medium">{rawValue(row, "Product", "trade_name") ?? "—"}</p>
+          {rawValue(row, "Generic Name", "generic_name") ? (
+            <p className="text-[11px] text-muted-foreground">
+              {rawValue(row, "Generic Name", "generic_name")}
+            </p>
           ) : null}
         </div>
       ),
     },
-    { key: "sponsor_name", header: "Sponsor", render: (row) => row.sponsor_name ?? "—" },
+    { key: "sponsor_name", header: "Sponsor", render: (row) => rawValue(row, "Sponsor", "sponsor_name") ?? "—" },
     { key: "original_expiration_date", header: "Original expiry", render: (row) => fmtDate(row.original_expiration_date) },
     { key: "extended_expiration_date", header: "Extended expiry", render: (row) => fmtDate(row.extended_expiration_date) },
     {
@@ -197,6 +231,7 @@ function CertificatesTable() {
       onSearch={setSearch}
       searchPlaceholder="Search patent, trade or generic name…"
       exportPath="/pte/export/certificates"
+      renderDetail={(row) => <SourceCells raw={row.raw} />}
       filters={
         <div className="flex items-center gap-1.5">
           <span className="text-[11px] text-muted-foreground">Min extension (days)</span>

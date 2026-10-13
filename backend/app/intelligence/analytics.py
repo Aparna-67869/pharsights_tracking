@@ -541,12 +541,28 @@ def generic_opportunity_heatmap(session: Session, limit: int = 25) -> list[dict[
 
 
 def patent_family_distribution(session: Session, limit: int = 10) -> list[dict[str, Any]]:
-    """Patents grouped by assignee, for the family-distribution chart."""
+    """Listed patents grouped by the applicant that owns the product.
+
+    The Orange Book files carry no patent-assignee column, so patents are
+    attributed to the application's applicant — the only real owner signal in
+    the source — rather than to a guessed assignee.
+    """
     rows = session.execute(
-        select(Patent.assignee, func.count(Patent.id))
-        .where(Patent.assignee.is_not(None))
-        .group_by(Patent.assignee)
-        .order_by(desc(func.count(Patent.id)))
+        select(OrangeBookProduct.applicant_full_name, func.count(func.distinct(OrangeBookPatent.patent_number)))
+        .join(
+            OrangeBookProduct,
+            and_(
+                OrangeBookProduct.appl_no == OrangeBookPatent.appl_no,
+                OrangeBookProduct.appl_type == OrangeBookPatent.appl_type,
+            ),
+        )
+        .where(
+            OrangeBookPatent.is_active.is_(True),
+            OrangeBookProduct.is_active.is_(True),
+            OrangeBookProduct.applicant_full_name.is_not(None),
+        )
+        .group_by(OrangeBookProduct.applicant_full_name)
+        .order_by(desc(func.count(func.distinct(OrangeBookPatent.patent_number))))
         .limit(limit)
     ).all()
     return [{"assignee": r[0], "patents": r[1]} for r in rows]

@@ -111,12 +111,23 @@
   * {
     @apply border-border;
   }
+  html {
+    /* Comfortable base size for a dense data console. */
+    font-size: 16px;
+    -webkit-text-size-adjust: 100%;
+  }
   body {
     @apply bg-background text-foreground antialiased;
+    line-height: 1.55;
   }
   ::selection {
     @apply bg-primary/25;
   }
+  /* Lift the sub-12px utility sizes used across the console so secondary copy
+     stays legible. Kept in @layer base so explicit per-element overrides
+     (e.g. a PostCSS-computed arbitrary value) still win. */
+  .text-\[10px\] { font-size: 0.75rem; line-height: 1.05rem; }
+  .text-\[11px\] { font-size: 0.8125rem; line-height: 1.15rem; }
 }
 
 @layer components {

@@ -8,6 +8,7 @@ from typing import Any
 from app.core.errors import ParserError
 from app.core.logging import get_logger
 from app.core.text import clean_text
+from app.parsers.excel import _normalize_header
 
 log = get_logger(__name__)
 
@@ -122,7 +123,7 @@ def iter_table_dicts(
         for row in table[1:]:
             record = {}
             for index, name in enumerate(header):
-                key = re.sub(r"\s+", " ", name.replace("\n", " ")).strip().casefold()
+                key = _normalize_header(name)
                 if not key:
                     continue
                 record[key] = row[index] if index < len(row) else ""

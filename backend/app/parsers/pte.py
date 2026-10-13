@@ -17,6 +17,7 @@ from typing import Any
 from app.core.logging import get_logger
 from app.core.text import (
     clean_text,
+    normalize_nda_number,
     normalize_patent_number,
     parse_date_flexible,
     parse_extension_period,
@@ -58,8 +59,12 @@ def parse_pte_applications(data: bytes, *, filename: str = "") -> list[dict[str,
         trade_name, generic_name = _split_trade_name(xl.pick(row, "trade name"))
         records.append(
             {
+                "raw": {k: clean_text(v) for k, v in row.items()},
                 "application_number": application_number,
-                "patent_number": normalize_patent_number(patent_number) or patent_number,
+                "application_number_normalized": normalize_nda_number(application_number)
+                or application_number,
+                "patent_number": clean_text(patent_number),
+                "patent_number_normalized": normalize_patent_number(patent_number),
                 "patent_center_link": clean_text(xl.pick(row, "patent center link")),
                 "filing_date": parse_date_flexible(
                     xl.pick(row, "pte application filing date", "filing date")
@@ -99,7 +104,9 @@ def parse_pte_certificates(data: bytes, *, filename: str = "") -> list[dict[str,
         extension_days = parse_extension_period(extension_text)
         records.append(
             {
-                "patent_number": normalize_patent_number(patent_number) or patent_number,
+                "raw": {k: clean_text(v) for k, v in row.items()},
+                "patent_number": clean_text(patent_number),
+                "patent_number_normalized": normalize_patent_number(patent_number),
                 "trade_name": trade_name,
                 "generic_name": generic_name,
                 "sponsor_name": None,
@@ -115,15 +122,24 @@ def parse_pte_certificates(data: bytes, *, filename: str = "") -> list[dict[str,
 
 
 def source_key_application(record: dict[str, Any]) -> str:
-    return "pte_app|" + (record.get("application_number") or record.get("patent_number") or "")
+    identifier = (
+        record.get("application_number_normalized")
+        or record.get("application_number")
+        or record.get("patent_number_normalized")
+        or record.get("patent_number")
+        or ""
+    )
+    return "pte_app|" + str(identifier)
 
 
 def source_key_certificate(record: dict[str, Any]) -> str:
-    return "pte_cert|" + (record.get("patent_number") or "")
+    identifier = record.get("patent_number_normalized") or record.get("patent_number") or ""
+    return "pte_cert|" + str(identifier)
 
 
 def application_payload(record: dict[str, Any]) -> dict[str, Any]:
     return {
+        "raw": record.get("raw"),
         "application_number": record.get("application_number"),
         "patent_number": record.get("patent_number"),
         "filing_date": record.get("filing_date"),
@@ -135,6 +151,7 @@ def application_payload(record: dict[str, Any]) -> dict[str, Any]:
 
 def certificate_payload(record: dict[str, Any]) -> dict[str, Any]:
     return {
+        "raw": record.get("raw"),
         "patent_number": record.get("patent_number"),
         "trade_name": record.get("trade_name"),
         "generic_name": record.get("generic_name"),

@@ -84,3 +84,39 @@ export const CHANGE_STYLES: Record<string, string> = {
   updated: "bg-primary/15 text-primary border-primary/30",
   removed: "bg-destructive/15 text-destructive border-destructive/30 dark:text-red-300",
 };
+
+/**
+ * Resolve the value a row displays for one column, preferring the exact cell
+ * text published in the source document (`raw`) over the normalized field.
+ * `rawKey` is matched case/space-insensitively so callers can pass the label a
+ * human sees on FDA.gov / USPTO.gov.
+ */
+export function rawValue<T extends { raw?: Record<string, unknown> | null }>(
+  row: T,
+  rawKey: string,
+  fallbackKey?: keyof T & string,
+): string | null {
+  const raw = row.raw;
+  if (raw) {
+    const target = normalize(rawKey);
+    for (const [key, value] of Object.entries(raw)) {
+      if (normalize(key) === target && value != null && value !== "") {
+        return String(value);
+      }
+    }
+  }
+  if (fallbackKey) {
+    const value = row[fallbackKey];
+    return value == null || value === "" ? null : String(value);
+  }
+  return null;
+}
+
+function normalize(value: string): string {
+  return value.toLowerCase().replace(/[^a-z0-9]/g, "");
+}
+
+/** True when a row carries at least one preserved source cell. */
+export function hasRaw(row: { raw?: Record<string, unknown> | null }): boolean {
+  return Boolean(row.raw && Object.keys(row.raw).length > 0);
+}

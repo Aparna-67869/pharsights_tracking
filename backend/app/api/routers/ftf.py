@@ -109,11 +109,12 @@ def source_info(session: SessionDep) -> dict:
     record count, so the dashboard can show the same header the source shows.
     """
     from app.db.models import SourceDocument
+    from app.services.document_actions import MODULE_SOURCE
 
     doc = session.scalars(
         select(SourceDocument)
         .where(
-            SourceDocument.source_code == "fda_ftf_ppiv_excel",
+            SourceDocument.source_code == MODULE_SOURCE["ftf"],
             SourceDocument.is_current.is_(True),
         )
         .order_by(desc(SourceDocument.fetched_at))
@@ -142,10 +143,14 @@ def therapy_areas(session: SessionDep, limit: int = Query(10, ge=1, le=50)) -> l
     return ftf_top_therapy_areas(session, limit=limit)
 
 
-@router.get("/export", summary="Export the filtered Paragraph IV list as CSV")
-def export(session: SessionDep, q: str | None = None, status: str | None = None):
-
-    from app.api.export import csv_response
+@router.get("/export", summary="Export the filtered Paragraph IV list (CSV or Excel)")
+def export(
+    session: SessionDep,
+    q: str | None = None,
+    status: str | None = None,
+    format: str = Query("csv", pattern="^(csv|xlsx)$", description="csv | xlsx"),
+):
+    from app.api.export import csv_response, xlsx_response
 
     stmt = _filtered(q, None, None, None, status, None, None, None).order_by(
         func.lower(FtfRecord.drug_name)
@@ -157,9 +162,9 @@ def export(session: SessionDep, q: str | None = None, status: str | None = None)
         "first_applicant_approval_date", "first_commercial_marketing_date",
         "last_qualifying_patent_expiry",
     ]
-    return csv_response(
-        rows,
-        columns,
-        filename="ftf_paragraph_iv.csv",
-        headers=[c.replace("_", " ").title() for c in columns],
-    )
+    headers = [c.replace("_", " ").title() for c in columns]
+    if format == "xlsx":
+        return xlsx_response(
+            rows, columns, filename="ftf_paragraph_iv.xlsx", headers=headers, sheet_name="Paragraph IV"
+        )
+    return csv_response(rows, columns, filename="ftf_paragraph_iv.csv", headers=headers)

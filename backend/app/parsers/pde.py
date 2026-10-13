@@ -26,6 +26,7 @@ def parse_active_moieties(data: bytes, *, filename: str = "") -> list[dict[str, 
         sponsor = clean_text(xl.pick(row, "sponsor"))
         records.append(
             {
+                "raw": {k: clean_text(v) for k, v in row.items()},
                 "moiety_name": moiety,
                 "sponsor_name": sponsor,
                 "date_issued": issued,
@@ -46,6 +47,7 @@ def source_key(record: dict[str, Any]) -> str:
 
 def content_payload(record: dict[str, Any]) -> dict[str, Any]:
     return {
+        "raw": record.get("raw"),
         "moiety_name": record.get("moiety_name"),
         "sponsor_name": record.get("sponsor_name"),
         "date_issued": record.get("date_issued"),

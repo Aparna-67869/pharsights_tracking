@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import re
 from collections.abc import Callable
 from dataclasses import dataclass, field
 from datetime import date
@@ -153,3 +154,86 @@ ORANGE_BOOK_EXCLUSIVITY_VALIDATORS: list[Validator] = [
     _required("exclusivity_code", "Exclusivity code"),
     _date_sanity("exclusivity_date"),
 ]
+
+
+# ---- Fidelity gate ---------------------------------------------------------
+#
+# Runs *before* records are published. It compares the parsed value of every
+# identifier the dashboard displays against the exact cell text the source
+# published, rejecting any row whose stored value would misrepresent the
+# official document. The parse layers build these normalized fields; here we
+# assert the transformation was lossless.
+
+_IDENTIFIER_FIELDS = (
+    "patent_number",
+    "nda_number",
+    "application_number",
+    "appl_no",
+)
+
+
+def _digits_only(value: Any) -> str:
+    """Digit form for identifier comparison; leading zeros are insignificant
+    (``02222`` and ``2222`` are the same NDA)."""
+    return re.sub(r"[^0-9]", "", str(value or "")).lstrip("0") or "0"
+
+
+def fidelity_validator(raw_key: str, label: str) -> Validator:
+    """Reject records whose displayed identifier no longer matches the source cell."""
+
+    def _validator(record: dict[str, Any]) -> list[ValidationIssue]:
+        issues: list[ValidationIssue] = []
+        raw = record.get("raw") or {}
+        for name in _IDENTIFIER_FIELDS:
+            published = clean_text(str(raw.get(raw_key) or ""))
+            stored = clean_text(str(record.get(name) or ""))
+            if not published or not stored:
+                continue
+            if published == stored:
+                continue
+            if _digits_only(published) == _digits_only(stored):
+                continue
+            issues.append(
+                ValidationIssue(
+                    "error",
+                    name,
+                    f"{label}: stored {name} {stored!r} does not match published "
+                    f"value {published!r}",
+                )
+            )
+        return issues
+
+    return _validator
+
+
+_FTF_RLD_RE = re.compile(r"^(?P<brand>.*?)[\s\n]+(?P<number>\d{3,6})\s*$", re.DOTALL)
+
+
+def _ftf_fidelity(record: dict[str, Any]) -> list[ValidationIssue]:
+    raw = record.get("raw") or {}
+    published = clean_text(str(raw.get("RLD/NDA") or raw.get("rld nda") or ""))
+    stored_nda = clean_text(str(record.get("nda_number") or ""))
+    if not published or not stored_nda:
+        return []
+    match = _FTF_RLD_RE.match(published)
+    number = clean_text(match.group("number")) if match else ""
+    if number and _digits_only(number) != _digits_only(stored_nda):
+        return [
+            ValidationIssue(
+                "error",
+                "nda_number",
+                f"FTF: stored nda_number {stored_nda!r} does not match the RLD/NDA "
+                f"cell {published!r}",
+            )
+        ]
+    return []
+
+
+FTF_FIDELITY_VALIDATORS: list[Validator] = [_ftf_fidelity]
+PTE_APPLICATION_FIDELITY: list[Validator] = [
+    fidelity_validator("U.S. Application No", "PTE application"),
+    fidelity_validator("U.S. Patent No", "PTE application"),
+]
+PTE_CERTIFICATE_FIDELITY: list[Validator] = [fidelity_validator("Patent No", "PTE certificate")]
+PDE_FIDELITY: list[Validator] = []
+ORANGE_BOOK_FIDELITY: list[Validator] = [fidelity_validator("Appl_No", "Orange Book product")]

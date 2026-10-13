@@ -111,3 +111,39 @@ def alert_notifications(alert_id: str, session: SessionDep) -> list[dict]:
         }
         for r in rows
     ]
+
+
+@router.get("/{alert_id}/deliveries", summary="Delivery status per channel for an alert")
+def alert_deliveries(alert_id: str, session: SessionDep) -> dict:
+    """Per-channel alert status + notification status + sent times.
+
+    Backs the Alerts page's delivery panel: for each channel that received (or
+    was meant to receive) the alert, report the recorded outcome and the exact
+    time it was sent, so a user can see that email and Teams fired and when.
+    """
+    if session.get(Alert, alert_id) is None:
+        raise NotFoundError("Alert not found")
+    rows = list(
+        session.scalars(
+            select(NotificationLog)
+            .where(NotificationLog.alert_id == alert_id)
+            .order_by(NotificationLog.channel, desc(NotificationLog.created_at))
+        )
+    )
+    channels: dict[str, dict] = {}
+    for row in rows:
+        entry = channels.setdefault(
+            row.channel,
+            {"channel": row.channel, "status": row.status, "recipient": row.recipient,
+             "sent_at": None, "error": None, "attempts": 0},
+        )
+        entry["attempts"] += row.attempts
+        if row.status == "sent":
+            entry["status"] = "sent"
+            entry["sent_at"] = row.sent_at.isoformat() if row.sent_at else None
+            entry["recipient"] = row.recipient
+            entry["error"] = None
+        elif entry["status"] != "sent":
+            entry["status"] = row.status
+            entry["error"] = row.error
+    return {"alert_id": alert_id, "channels": list(channels.values())}

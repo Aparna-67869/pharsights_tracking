@@ -18,6 +18,35 @@ from app.core.logging import get_logger
 log = get_logger(__name__)
 
 
+def _opens_implicit_tls() -> bool:
+    if settings.smtp_use_ssl is not None:
+        return settings.smtp_use_ssl
+    return settings.smtp_port == 465
+
+
+def deliver(message: EmailMessage) -> None:
+    """Send one prepared message over the configured SMTP relay.
+
+    Chooses implicit TLS (port 465) vs. STARTTLS (587) so any relay —
+    corporate Exchange/Graph front-end or a mailbox provider — works without
+    code changes. Raises on failure; callers record the error.
+    """
+    host = settings.smtp_host
+    port = settings.smtp_port
+    if _opens_implicit_tls():
+        with smtplib.SMTP_SSL(host, port, timeout=30) as server:
+            if settings.smtp_username and settings.smtp_password:
+                server.login(settings.smtp_username, settings.smtp_password)
+            server.send_message(message)
+        return
+    with smtplib.SMTP(host, port, timeout=30) as server:
+        if settings.smtp_use_tls:
+            server.starttls()
+        if settings.smtp_username and settings.smtp_password:
+            server.login(settings.smtp_username, settings.smtp_password)
+        server.send_message(message)
+
+
 @dataclass
 class EmailResult:
     status: str  # sent | skipped | failed
@@ -44,11 +73,7 @@ def send_email(
         message.set_content(body)
         if html:
             message.add_alternative(html, subtype="html")
-        with smtplib.SMTP(settings.smtp_host, settings.smtp_port, timeout=30) as server:
-            server.starttls()
-            if settings.smtp_username and settings.smtp_password:
-                server.login(settings.smtp_username, settings.smtp_password)
-            server.send_message(message)
+        deliver(message)
         return EmailResult(status="sent", recipients=recipients)
     except Exception as exc:
         log.warning("email delivery failed: %s", exc)

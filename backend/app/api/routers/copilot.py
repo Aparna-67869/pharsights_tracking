@@ -19,6 +19,25 @@ def suggested() -> list[str]:
     return SUGGESTED_QUESTIONS
 
 
+@router.get("/status", summary="Copilot backend availability")
+def status() -> dict:
+    """Report whether a generative LLM is configured.
+
+    The copilot always answers from the platform's own records (retrieval-first),
+    so it is never "broken"; this tells the UI whether answers are LLM-narrated
+    or produced by the deterministic engine, so it can label them honestly.
+    """
+    from app.copilot.llm import get_llm
+
+    llm = get_llm()
+    return {
+        "available": True,
+        "llm_configured": llm.available,
+        "provider": llm.provider,
+        "model": llm.model,
+    }
+
+
 @router.post(
     "/ask",
     response_model=CopilotAnswerOut,

@@ -95,6 +95,7 @@ def parse_products(data: bytes) -> list[dict[str, Any]]:
             continue
         records.append(
             {
+                "raw": {k: clean_text(v) for k, v in row.items()},
                 "ingredient": clean_text(row.get("Ingredient")),
                 "dosage_form_route": clean_text(row.get("DF;Route")),
                 "trade_name": trade_name,
@@ -102,7 +103,8 @@ def parse_products(data: bytes) -> list[dict[str, Any]]:
                 "applicant_full_name": clean_text(row.get("Applicant_Full_Name")),
                 "strength": clean_text(row.get("Strength")),
                 "appl_type": clean_text(row.get("Appl_Type")),
-                "appl_no": normalize_nda_number(appl_no) or appl_no,
+                "appl_no": appl_no,
+                "appl_no_normalized": normalize_nda_number(appl_no) or appl_no,
                 "product_no": product_no,
                 "te_code": clean_text(row.get("TE_Code")),
                 "approval_date": parse_date_flexible(row.get("Approval_Date")),
@@ -126,7 +128,8 @@ def parse_patents(data: bytes) -> list[dict[str, Any]]:
         records.append(
             {
                 "appl_type": clean_text(row.get("Appl_Type")),
-                "appl_no": normalize_nda_number(appl_no) or appl_no,
+                "appl_no": appl_no,
+                "appl_no_normalized": normalize_nda_number(appl_no) or appl_no,
                 "product_no": clean_text(row.get("Product_No")),
                 "patent_number": normalize_patent_number(patent_number) or patent_number,
                 "expiration_text": expiration_text,
@@ -152,7 +155,8 @@ def parse_exclusivity(data: bytes) -> list[dict[str, Any]]:
         records.append(
             {
                 "appl_type": clean_text(row.get("Appl_Type")),
-                "appl_no": normalize_nda_number(appl_no) or appl_no,
+                "appl_no": appl_no,
+                "appl_no_normalized": normalize_nda_number(appl_no) or appl_no,
                 "product_no": clean_text(row.get("Product_No")),
                 "exclusivity_code": code,
                 "exclusivity_date": parse_date_flexible(row.get("Exclusivity_Date")),
@@ -217,6 +221,7 @@ def exclusivity_source_key(record: dict[str, Any]) -> str:
 
 def product_payload(record: dict[str, Any]) -> dict[str, Any]:
     return {
+        "raw": record.get("raw"),
         "trade_name": record.get("trade_name"),
         "ingredient": record.get("ingredient"),
         "applicant": record.get("applicant"),

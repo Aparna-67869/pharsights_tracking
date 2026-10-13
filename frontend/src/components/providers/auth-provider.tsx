@@ -15,7 +15,6 @@ interface AuthContextValue {
   loading: boolean;
   error: string | null;
   login: (username: string, password: string) => Promise<void>;
-  register: (payload: { full_name: string; email: string; password: string }) => Promise<void>;
   logout: () => void;
   hasScope: (scope: string) => boolean;
 }
@@ -65,25 +64,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     [router],
   );
 
-  const register = React.useCallback(
-    async (payload: { full_name: string; email: string; password: string }) => {
-      setError(null);
-      try {
-        await api.register(payload);
-        // Sign the new account straight in so signup lands the user in the app.
-        await api.login(payload.email, payload.password);
-        const me = await api.me();
-        setUser(me);
-        router.push("/");
-      } catch (err) {
-        const message = err instanceof ApiError ? err.message : "Account creation failed";
-        setError(message);
-        throw err;
-      }
-    },
-    [router],
-  );
-
   const logout = React.useCallback(() => {
     clearToken();
     setUser(null);
@@ -102,8 +82,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   );
 
   const value = React.useMemo(
-    () => ({ user, loading, error, login, register, logout, hasScope }),
-    [user, loading, error, login, register, logout, hasScope],
+    () => ({ user, loading, error, login, logout, hasScope }),
+    [user, loading, error, login, logout, hasScope],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

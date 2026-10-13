@@ -74,14 +74,3 @@ export function Sparkline({
     </svg>
   );
 }
-
-/** Deterministic pseudo-random series, used when a metric has no history yet. */
-export function seedSeries(seed: number, length = 16, base = 30, spread = 22): number[] {
-  let value = (Math.abs(Math.floor(seed)) % 997) + 1;
-  const out: number[] = [];
-  for (let i = 0; i < length; i += 1) {
-    value = (value * 1103515245 + 12345) % 2147483647;
-    out.push(base + (value % spread));
-  }
-  return out;
-}

@@ -8,7 +8,10 @@ import { Input } from "@/components/ui/input";
 import { DataTable, type Column } from "@/components/tables/data-table";
 import { AreaTrend, BarSeries } from "@/components/charts/charts";
 import { KpiCard } from "@/components/common/kpi-card";
-import { fmtDate, fmtNumber } from "@/lib/format";
+import { SourceProvenance } from "@/components/common/source-provenance";
+import { OfficialSourceBanner } from "@/components/common/official-source-banner";
+import { SourceCells } from "@/components/common/source-cells";
+import { fmtDate, fmtNumber, rawValue } from "@/lib/format";
 import { useDebounced } from "@/hooks/use-debounce";
 import type { ActiveMoiety } from "@/types/api";
 
@@ -26,9 +29,23 @@ export default function PdePage() {
   const sponsors = useQuery({ queryKey: ["pde-sponsors"], queryFn: () => api.pdeTopSponsors(15) });
 
   const columns: Column<ActiveMoiety>[] = [
-    { key: "moiety_name", header: "Active moiety", render: (row) => <span className="font-medium">{row.moiety_name}</span> },
-    { key: "sponsor_name", header: "Sponsor", render: (row) => row.sponsor_name ?? "—" },
-    { key: "date_issued", header: "Date issued", render: (row) => fmtDate(row.date_issued) },
+    {
+      key: "moiety_name",
+      header: "Active moiety",
+      render: (row) => (
+        <span className="font-medium">{rawValue(row, "Active Moiety", "moiety_name") ?? "—"}</span>
+      ),
+    },
+    {
+      key: "sponsor_name",
+      header: "Sponsor",
+      render: (row) => rawValue(row, "Sponsor", "sponsor_name") ?? "—",
+    },
+    {
+      key: "date_issued",
+      header: "Date issued",
+      render: (row) => rawValue(row, "Date Issued", "date_issued") ?? fmtDate(row.date_issued),
+    },
     {
       key: "approval_year",
       header: "Year",
@@ -52,6 +69,8 @@ export default function PdePage() {
           Written requests issued by FDA identifying the approved active moiety — the basis for new chemical
           entity exclusivity determinations.
         </p>
+        <OfficialSourceBanner module="pde" />
+        <SourceProvenance module="pde" />
       </header>
 
       <section className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
@@ -104,6 +123,7 @@ export default function PdePage() {
         onSearch={setSearch}
         searchPlaceholder="Search active moiety…"
         exportPath="/pde/export"
+        renderDetail={(row) => <SourceCells raw={row.raw} />}
         filters={
           <div className="flex items-center gap-1.5">
             <span className="text-[11px] text-muted-foreground">Sponsor</span>

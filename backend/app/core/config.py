@@ -99,6 +99,11 @@ class Settings(BaseSettings):
     smtp_username: str | None = None
     smtp_password: str | None = None
     smtp_from: str = "pharma-intel@example.com"
+    # 587 (submission) upgrades with STARTTLS; 465 uses implicit TLS from the
+    # first byte. Both are common, so the transport is chosen by port and
+    # ``smtp_use_tls`` can force STARTTLS on/off for anything unusual.
+    smtp_use_ssl: bool | None = None  # None = infer from port
+    smtp_use_tls: bool = True
     alert_email_recipients: list[str] = Field(default_factory=list)
     teams_webhook_url: str | None = None
     slack_webhook_url: str | None = None
@@ -108,10 +113,24 @@ class Settings(BaseSettings):
     otel_endpoint: str | None = None
     metrics_enabled: bool = True
 
-    # Self-service account creation. Enabled by default for local/demo use;
-    # production deployments should set ALLOW_SELF_REGISTRATION=false and
-    # provision accounts through the admin path instead.
-    allow_self_registration: bool = True
+    # Self-service account creation. This is a company-internal platform: there
+    # is no public sign-up. Accounts are provisioned by an administrator (or the
+    # seed script); the register endpoint exists only as an admin-only tool.
+    allow_self_registration: bool = False
+
+    # Single-account lock-down for the demonstration deployment. When enabled,
+    # only ``allowed_login_email`` may authenticate and no accounts may be
+    # created (the register endpoint is closed regardless of role). Set
+    # RESTRICT_LOGIN=false to restore normal multi-account access.
+    restrict_login: bool = True
+    allowed_login_email: str = "admin@pharma-intel.local"
+
+    # ---- Automatic monitoring ----
+    # The platform monitors the sources on its own cadence; users never run a
+    # sweep by hand. Production overrides the cadence via Airflow, but the
+    # in-process scheduler keeps the local deployment equally automatic.
+    scheduler_enabled: bool = True
+    scheduler_interval_minutes: int = 360
 
     @property
     def is_sqlite(self) -> bool:

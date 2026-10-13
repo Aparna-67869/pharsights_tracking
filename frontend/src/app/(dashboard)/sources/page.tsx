@@ -19,6 +19,11 @@ export default function SourcesPage() {
   const canRun = hasScope("run:pipeline");
   const sources = useQuery({ queryKey: ["sources"], queryFn: () => api.sources() });
   const runs = useQuery({ queryKey: ["pipeline-runs"], queryFn: () => api.pipelineRuns(25), refetchInterval: 15_000 });
+  const scheduler = useQuery({
+    queryKey: ["scheduler"],
+    queryFn: () => api.schedulerStatus(),
+    refetchInterval: 60_000,
+  });
 
   const trigger = useMutation({
     mutationFn: () => api.triggerPipeline({}),
@@ -43,6 +48,24 @@ export default function SourcesPage() {
             The registry of monitored FDA and USPTO sources and the automation runs that collect, diff and
             analyse them.
           </p>
+          {scheduler.data ? (
+            <p className="mt-1.5 flex items-center gap-1.5 text-xs text-muted-foreground">
+              <span
+                className={
+                  scheduler.data.enabled
+                    ? "h-2 w-2 rounded-full bg-success shadow-[0_0_6px] shadow-success/60"
+                    : "h-2 w-2 rounded-full bg-muted-foreground"
+                }
+              />
+              {scheduler.data.enabled
+                ? `Automatic monitoring on — every ${scheduler.data.interval_minutes} min. ${
+                    scheduler.data.last_run_at
+                      ? `Last sweep ${fmtRelative(scheduler.data.last_run_at)}; detected ${scheduler.data.last_result?.changes_detected ?? 0} change(s), raised ${scheduler.data.last_result?.alerts_created ?? 0} alert(s).`
+                      : "First sweep runs shortly after startup."
+                  }`
+                : "Automatic monitoring is disabled (SCHEDULER_ENABLED=false)."}
+            </p>
+          ) : null}
         </div>
         {canRun ? (
           <Button onClick={() => trigger.mutate()} disabled={trigger.isPending}>
