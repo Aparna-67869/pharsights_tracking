@@ -16,6 +16,7 @@ from typing import Any
 
 from app.core.logging import get_logger
 from app.core.text import (
+    canonical_identifier,
     clean_text,
     normalize_nda_number,
     normalize_patent_number,
@@ -47,11 +48,11 @@ def parse_pte_applications(data: bytes, *, filename: str = "") -> list[dict[str,
         rows, required=["u.s. application no", "u.s. patent no", "pte application filing date"]
     )
     records: list[dict[str, Any]] = []
-    for row in dicts:
-        application_number = clean_text(
+    for position, row in enumerate(dicts):
+        application_number = canonical_identifier(
             xl.pick(row, "u.s. application no", "application no", "application number")
         )
-        patent_number = clean_text(
+        patent_number = canonical_identifier(
             xl.pick(row, "u.s. patent no", "patent no", "patent number")
         )
         if not application_number and not patent_number:
@@ -60,6 +61,7 @@ def parse_pte_applications(data: bytes, *, filename: str = "") -> list[dict[str,
         records.append(
             {
                 "raw": {k: clean_text(v) for k, v in row.items()},
+                "source_ordinal": position,
                 "application_number": application_number,
                 "application_number_normalized": normalize_nda_number(application_number)
                 or application_number,
@@ -88,8 +90,8 @@ def parse_pte_certificates(data: bytes, *, filename: str = "") -> list[dict[str,
         rows, required=["patent no", "tradename", "period of extension granted"]
     )
     records: list[dict[str, Any]] = []
-    for row in dicts:
-        patent_number = clean_text(xl.pick(row, "patent no", "patent number"))
+    for position, row in enumerate(dicts):
+        patent_number = canonical_identifier(xl.pick(row, "patent no", "patent number"))
         if not patent_number:
             continue
         trade_name, generic_name = _split_trade_name(
@@ -105,7 +107,8 @@ def parse_pte_certificates(data: bytes, *, filename: str = "") -> list[dict[str,
         records.append(
             {
                 "raw": {k: clean_text(v) for k, v in row.items()},
-                "patent_number": clean_text(patent_number),
+                "source_ordinal": position,
+                "patent_number": patent_number,
                 "patent_number_normalized": normalize_patent_number(patent_number),
                 "trade_name": trade_name,
                 "generic_name": generic_name,
@@ -122,14 +125,22 @@ def parse_pte_certificates(data: bytes, *, filename: str = "") -> list[dict[str,
 
 
 def source_key_application(record: dict[str, Any]) -> str:
-    identifier = (
-        record.get("application_number_normalized")
-        or record.get("application_number")
-        or record.get("patent_number_normalized")
-        or record.get("patent_number")
-        or ""
-    )
-    return "pte_app|" + str(identifier)
+    """Natural key identifying a PTE application row across versions.
+
+    A single USPTO application number is genuinely reused: ``Grafapex`` appears
+    under application 10129352 twice with different filing dates (2021 and
+    2025), and one application can list several patents. Keying on the
+    application number alone merged those rows and silently dropped real
+    applications. The patent and filing date — plus the trade name for the rare
+    same-day refiling — make the key unique in the published workbook.
+    """
+    parts = [
+        record.get("application_number") or "",
+        record.get("patent_number_normalized") or "",
+        str(record.get("filing_date") or ""),
+        (record.get("trade_name") or "").casefold(),
+    ]
+    return "pte_app|" + "|".join(parts)
 
 
 def source_key_certificate(record: dict[str, Any]) -> str:

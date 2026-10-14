@@ -89,7 +89,11 @@ class SourceDocument(Base, UUIDPrimaryKey, TimestampMixin):
     http_status: Mapped[int | None] = mapped_column(Integer, nullable=True)
     etag: Mapped[str | None] = mapped_column(String(255), nullable=True)
     last_modified: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    # record_count is what the module actually serves (valid, deduplicated rows);
+    # source_record_count is the raw parsed row count before validation, kept so
+    # the provenance bar can explain a source row the platform legitimately drops.
     record_count: Mapped[int] = mapped_column(Integer, default=0)
+    source_record_count: Mapped[int | None] = mapped_column(Integer, nullable=True)
     parse_status: Mapped[str] = mapped_column(String(32), default="pending")  # pending|ok|failed
     parse_error: Mapped[str | None] = mapped_column(Text, nullable=True)
     extra: Mapped[dict[str, Any]] = mapped_column(JSON, default=dict)
@@ -231,6 +235,8 @@ class ActiveMoiety(Base, UUIDPrimaryKey, TimestampMixin):
     source_code: Mapped[str] = mapped_column(String(64), index=True)
 
     source_key: Mapped[str] = mapped_column(String(512), index=True)
+    # 0-based position in the FDA workbook; see PteApplication.source_ordinal.
+    source_ordinal: Mapped[int | None] = mapped_column(Integer, nullable=True, index=True)
     moiety_name: Mapped[str] = mapped_column(String(512), index=True)
     normalized_name: Mapped[str] = mapped_column(String(512), index=True)
     sponsor_id: Mapped[str | None] = mapped_column(String(36), ForeignKey("sponsors.id"), nullable=True)
@@ -340,6 +346,9 @@ class PteApplication(Base, UUIDPrimaryKey, TimestampMixin):
     source_code: Mapped[str] = mapped_column(String(64), index=True)
 
     source_key: Mapped[str] = mapped_column(String(512), index=True)
+    # 0-based position of this row in the published USPTO workbook; the SOP
+    # renders the table in the regulator's own order rather than a sorted column.
+    source_ordinal: Mapped[int | None] = mapped_column(Integer, nullable=True, index=True)
     application_number: Mapped[str] = mapped_column(String(64), index=True)
     patent_number: Mapped[str] = mapped_column(String(64), index=True)
     patent_center_link: Mapped[str | None] = mapped_column(String(1024), nullable=True)
@@ -370,6 +379,7 @@ class PteCertificate(Base, UUIDPrimaryKey, TimestampMixin):
     source_code: Mapped[str] = mapped_column(String(64), index=True)
 
     source_key: Mapped[str] = mapped_column(String(512), index=True)
+    source_ordinal: Mapped[int | None] = mapped_column(Integer, nullable=True, index=True)
     patent_number: Mapped[str] = mapped_column(String(64), index=True)
     trade_name: Mapped[str | None] = mapped_column(String(512), nullable=True, index=True)
     generic_name: Mapped[str | None] = mapped_column(String(512), nullable=True)

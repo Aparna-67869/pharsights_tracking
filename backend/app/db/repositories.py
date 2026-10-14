@@ -36,6 +36,10 @@ class RecordDelta:
     removed: list[dict[str, Any]] = field(default_factory=list)
     unchanged_count: int = 0
     total: int = 0
+    # Distinct natural keys persisted as active rows. Equals the module's row
+    # count; lower than ``total`` when a source row is rejected or collapses as
+    # an exact duplicate within the batch.
+    stored: int = 0
 
     @property
     def has_changes(self) -> bool:
@@ -153,6 +157,7 @@ def sync_versioned_records(
         row.updated_at = now
         delta.removed.append(_row_payload(row, payload_fn({})))
 
+    delta.stored = len(seen_keys)
     session.flush()
     return delta
 

@@ -43,6 +43,22 @@ def strip_html(value: str | None) -> str | None:
     return clean_text(re.sub(r"<[^>]+>", " ", value))
 
 
+def canonical_identifier(value: str | None) -> str | None:
+    """Strip the Excel float artifact from an identifier cell.
+
+    Excel reads a large integer cell as a float, so the USPTO certificate
+    workbook surfaces patent ``8088378`` as ``8088378.0``. Left alone it both
+    misrepresents the published number and collapses the natural key. Only a
+    pure integer with a trailing float marker is rewritten; ``RE27757`` and any
+    genuinely punctuated value pass through untouched.
+    """
+    text = clean_text(value)
+    if not text:
+        return None
+    match = re.fullmatch(r"(\d+)\.0+", text)
+    return match.group(1) if match else text
+
+
 def normalize_name(value: str | None) -> str:
     """Case/whitespace-insensitive comparison key for drugs and companies."""
     text = clean_text(value) or ""

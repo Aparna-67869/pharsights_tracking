@@ -96,6 +96,13 @@ export function SourceProvenance({ module }: { module: string }) {
       ? Package
       : FileText;
 
+  // A source workbook can list rows the platform legitimately drops (rejected by
+  // validation, or an exact duplicate). Surface the gap rather than hide it.
+  const dropped =
+    data.source_record_count != null && data.record_count != null
+      ? Math.max(0, data.source_record_count - data.record_count)
+      : 0;
+
   const fields: Array<{ label: string; value: React.ReactNode }> = [
     { label: "Source file", value: <span className="font-medium text-foreground">{data.filename ?? "—"}</span> },
     {
@@ -107,7 +114,15 @@ export function SourceProvenance({ module }: { module: string }) {
     { label: "Downloaded", value: liveStamp(data.fetched_at) },
     { label: "Last processed", value: liveStamp(data.last_processed_at) },
     { label: "Version", value: `v${data.version ?? 1}` },
-    { label: "Records", value: data.record_count != null ? fmtNumber(data.record_count) : "—" },
+    {
+      label: "Records",
+      value:
+        data.record_count != null
+          ? dropped > 0
+            ? `${fmtNumber(data.record_count)} (of ${fmtNumber(data.source_record_count ?? 0)} source rows)`
+            : fmtNumber(data.record_count)
+          : "—",
+    },
     {
       label: "Next sweep",
       value: scheduler.data?.next_run_at ? liveStamp(scheduler.data.next_run_at) : "—",

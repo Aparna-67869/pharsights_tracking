@@ -147,6 +147,7 @@ def source_document_payload(session: Session, document: SourceDocument) -> dict[
         "document_kind": kind,
         "byte_size": document.byte_size,
         "record_count": document.record_count,
+        "source_record_count": document.source_record_count,
         "publication_date": document.publication_date.isoformat() if document.publication_date else None,
         "publication_label": document.publication_label,
         "fetched_at": document.fetched_at.isoformat() if document.fetched_at else None,

@@ -5,7 +5,7 @@ from __future__ import annotations
 from datetime import date
 
 from fastapi import APIRouter, Depends, Query
-from sqlalchemy import desc, func, or_, select
+from sqlalchemy import func, or_, select
 
 from app.api.deps import SessionDep, require_scope
 from app.api.export import csv_response
@@ -51,7 +51,9 @@ def list_applications(
     total = session.scalar(select(func.count()).select_from(stmt.subquery())) or 0
     rows = list(
         session.scalars(
-            stmt.order_by(desc(PteApplication.filing_date)).limit(page_size).offset((page - 1) * page_size)
+            stmt.order_by(PteApplication.source_ordinal, PteApplication.filing_date)
+            .limit(page_size)
+            .offset((page - 1) * page_size)
         )
     )
     return Page.build([PteApplicationOut.model_validate(r) for r in rows], total, page, page_size)
@@ -83,7 +85,9 @@ def list_certificates(
     total = session.scalar(select(func.count()).select_from(stmt.subquery())) or 0
     rows = list(
         session.scalars(
-            stmt.order_by(desc(PteCertificate.extension_days)).limit(page_size).offset((page - 1) * page_size)
+            stmt.order_by(PteCertificate.source_ordinal, PteCertificate.extension_days)
+            .limit(page_size)
+            .offset((page - 1) * page_size)
         )
     )
     return Page.build([PteCertificateOut.model_validate(r) for r in rows], total, page, page_size)
@@ -125,7 +129,7 @@ def export_applications(session: SessionDep):
         session.scalars(
             select(PteApplication)
             .where(PteApplication.is_active.is_(True))
-            .order_by(desc(PteApplication.filing_date))
+            .order_by(PteApplication.source_ordinal, PteApplication.filing_date)
         )
     )
     columns = ["application_number", "patent_number", "trade_name", "generic_name", "filing_date"]
@@ -138,7 +142,7 @@ def export_certificates(session: SessionDep):
         session.scalars(
             select(PteCertificate)
             .where(PteCertificate.is_active.is_(True))
-            .order_by(desc(PteCertificate.extension_days))
+            .order_by(PteCertificate.source_ordinal, PteCertificate.extension_days)
         )
     )
     columns = [

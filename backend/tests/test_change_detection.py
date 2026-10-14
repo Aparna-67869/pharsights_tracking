@@ -126,6 +126,9 @@ def test_duplicate_rows_within_a_batch_are_collapsed(session):
     )
     assert delta.counts()["added"] == 1
     assert delta.counts()["unchanged"] == 1
+    # ``stored`` is the number of distinct keys persisted — the row count the
+    # module serves, and what the provenance bar reports.
+    assert delta.stored == 1
 
 
 def test_invalid_rows_are_rejected_before_storage(session):

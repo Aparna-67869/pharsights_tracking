@@ -18,7 +18,7 @@ def parse_active_moieties(data: bytes, *, filename: str = "") -> list[dict[str, 
     rows = xl.sheet_rows(data, filename=filename)
     dicts = xl.rows_to_dicts(rows, required=["active moiety", "sponsor", "date issued"])
     records: list[dict[str, Any]] = []
-    for row in dicts:
+    for position, row in enumerate(dicts):
         moiety = clean_text(xl.pick(row, "active moiety"))
         if not moiety or normalize_name(moiety) == "active moiety":
             continue
@@ -27,6 +27,7 @@ def parse_active_moieties(data: bytes, *, filename: str = "") -> list[dict[str, 
         records.append(
             {
                 "raw": {k: clean_text(v) for k, v in row.items()},
+                "source_ordinal": position,
                 "moiety_name": moiety,
                 "sponsor_name": sponsor,
                 "date_issued": issued,
@@ -39,10 +40,17 @@ def parse_active_moieties(data: bytes, *, filename: str = "") -> list[dict[str, 
 
 
 def source_key(record: dict[str, Any]) -> str:
-    """Key is moiety + sponsor: the same moiety may be approved for several sponsors."""
+    """Key is moiety + sponsor + issue date.
+
+    A moiety can be listed more than once for the same sponsor with different
+    issue dates — ``Divalproex`` / ``Abbott Laboratories`` appears in 2002 and
+    again in 2006. Omitting the date merged those into one row and dropped the
+    second, so the issue date is part of the identity.
+    """
     moiety = normalize_name(record.get("moiety_name"))
     sponsor = normalize_name(record.get("sponsor_name"))
-    return f"pde|{moiety}|{sponsor}"
+    issued = record.get("date_issued") or ""
+    return f"pde|{moiety}|{sponsor}|{issued}"
 
 
 def content_payload(record: dict[str, Any]) -> dict[str, Any]:

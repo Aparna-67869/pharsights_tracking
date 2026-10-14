@@ -138,6 +138,7 @@ def run_source(
                 return result
 
             parsed = collector.parse(collected.data, filename=collected.document.filename)
+            collected.document.source_record_count = len(parsed.records)
             collected.document.record_count = len(parsed.records)
             collected.document.parse_status = "ok"
             session.flush()
@@ -153,15 +154,22 @@ def run_source(
                     is_baseline=is_baseline,
                 )
                 counts = delta.counts()
+                # record_count reflects rows the module actually serves; a source
+                # row can be rejected by validation or collapse as an exact
+                # duplicate, and the provenance bar must not claim it as stored.
+                collected.document.record_count = delta.stored
             elif source.module == "orange_book":
-                for name, delta in _handle_orange_book(
+                ob_deltas = _handle_orange_book(
                     session, source_code, parsed, collected, run_id=pipeline_run_id,
                     is_baseline=is_baseline,
-                ).items():
+                )
+                for name, delta in ob_deltas.items():
                     counts[name] = delta.counts()
                 if not counts:
                     counts = {"metadata_only": 0}
-
+                if "products" in ob_deltas:
+                    collected.document.record_count = ob_deltas["products"].stored
+            session.flush()
             result.update({"status": "processed", "records": len(parsed.records), "counts": counts})
         return result
     except Exception as exc:

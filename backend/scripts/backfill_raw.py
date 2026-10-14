@@ -66,14 +66,14 @@ _TARGETS: dict[str, tuple] = {
     ),
     "uspto_pte_applications": (
         PteApplication,
-        lambda r: _digits(r.get("application_number") or r.get("patent_number")),
-        lambda row: _digits(row.application_number or row.patent_number),
+        lambda r: pte_parser.source_key_application(r),
+        lambda row: row.source_key,
         pte_parser.application_payload,
     ),
     "uspto_pte_certificates": (
         PteCertificate,
-        lambda r: _digits(r.get("patent_number")),
-        lambda row: _digits(row.patent_number),
+        lambda r: pte_parser.source_key_certificate(r),
+        lambda row: row.source_key,
         pte_parser.certificate_payload,
     ),
     "fda_pde_approved_active_moiety": (

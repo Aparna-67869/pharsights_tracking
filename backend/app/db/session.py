@@ -124,11 +124,16 @@ _ADDITIVE_COLUMNS: dict[str, dict[str, str]] = {
         "last_success_at": "TIMESTAMP",
         "last_error": "TEXT",
     },
+    "source_documents": {"source_record_count": "INTEGER"},
     # Provenance: exact source cells + non-lossy identifier forms.
     "ftf_records": {"raw": "JSON", "source_ordinal": "INTEGER"},
-    "pte_applications": {"raw": "JSON", "application_number_normalized": "VARCHAR(64)"},
-    "pte_certificates": {"raw": "JSON"},
-    "active_moieties": {"raw": "JSON"},
+    "pte_applications": {
+        "raw": "JSON",
+        "application_number_normalized": "VARCHAR(64)",
+        "source_ordinal": "INTEGER",
+    },
+    "pte_certificates": {"raw": "JSON", "source_ordinal": "INTEGER"},
+    "active_moieties": {"raw": "JSON", "source_ordinal": "INTEGER"},
     "orange_book_products": {"raw": "JSON", "appl_no_normalized": "VARCHAR(16)"},
 }
 

@@ -473,6 +473,7 @@ export interface SourceDocumentMeta {
   document_kind?: string;
   byte_size?: number | null;
   record_count?: number | null;
+  source_record_count?: number | null;
   publication_date?: string | null;
   publication_label?: string | null;
   fetched_at?: string | null;

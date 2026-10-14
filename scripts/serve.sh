@@ -35,7 +35,11 @@ run_api() {
   export TEAMS_WEBHOOK_URL="${TEAMS_WEBHOOK_URL:-}"
   export SLACK_WEBHOOK_URL="${SLACK_WEBHOOK_URL:-}"
   export SCHEDULER_INTERVAL_MINUTES="${SCHEDULER_INTERVAL_MINUTES:-360}"
-  exec python3 -m uvicorn app.main:app --host 0.0.0.0 --port "$API_PORT"
+  # Prefer the project venv (created with `uv venv .venv`); fall back to a
+  # system python that has the requirements installed.
+  local py="python3"
+  [ -x "$ROOT/backend/.venv/bin/python" ] && py="$ROOT/backend/.venv/bin/python"
+  exec "$py" -m uvicorn app.main:app --host 0.0.0.0 --port "$API_PORT"
 }
 
 run_web() {

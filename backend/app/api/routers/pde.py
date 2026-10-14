@@ -5,7 +5,7 @@ from __future__ import annotations
 from datetime import date
 
 from fastapi import APIRouter, Depends, Query
-from sqlalchemy import desc, func, select
+from sqlalchemy import func, select
 
 from app.api.deps import SessionDep, require_scope
 from app.api.export import csv_response
@@ -43,7 +43,9 @@ def list_moieties(
     total = session.scalar(select(func.count()).select_from(stmt.subquery())) or 0
     rows = list(
         session.scalars(
-            stmt.order_by(desc(ActiveMoiety.date_issued)).limit(page_size).offset((page - 1) * page_size)
+            stmt.order_by(ActiveMoiety.source_ordinal, ActiveMoiety.date_issued)
+            .limit(page_size)
+            .offset((page - 1) * page_size)
         )
     )
     return Page.build([ActiveMoietyOut.model_validate(r) for r in rows], total, page, page_size)
@@ -75,7 +77,7 @@ def export(session: SessionDep):
         session.scalars(
             select(ActiveMoiety)
             .where(ActiveMoiety.is_active.is_(True))
-            .order_by(desc(ActiveMoiety.date_issued))
+            .order_by(ActiveMoiety.source_ordinal, ActiveMoiety.date_issued)
         )
     )
     columns = ["moiety_name", "sponsor_name", "date_issued", "approval_year", "status"]
