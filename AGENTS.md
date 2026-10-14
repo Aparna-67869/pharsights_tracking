@@ -195,6 +195,19 @@ The SOP mandates that each module mirrors what the analyst sees on the source pa
   `core.text.canonical_identifier`; genuinely punctuated ids (`7.420.051`,
   `RE27757`) pass through untouched.
 
+## PTE source publication date and download link
+
+- The USPTO page states the file's coverage in the anchor text next to the
+  download link, verbatim: *"PTE applications during last five years (updated
+  through September 8, 2026)"*. `uspto_pte_applications` scrapes that with
+  `publication_date_pattern = r"updated through\s+(...)"`, so
+  `publication_label="September 8, 2026"` is USPTO's own date, not a guess.
+- The publication date is deliberately distinct from `fetched_at` (when the
+  platform downloaded the file) and `last_processed_at` (last pipeline touch);
+  all three are real and independently sourced.
+- Direct file: `https://www.uspto.gov/sites/default/files/documents/pte_past5years.xlsx`
+  (`locator.strategy = href_contains "pte_past5years"`).
+
 ## Automatic monitoring (scheduler)
 
 - `services/scheduler.py` runs the real `run_pipeline` on a cadence in a daemon
