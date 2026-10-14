@@ -202,20 +202,27 @@ def product_source_key(record: dict[str, Any]) -> str:
 
 
 def patent_source_key(record: dict[str, Any]) -> str:
-    return "ob_pat|{}|{}|{}|{}".format(
+    # ``patent_use_code`` is part of the key because FDA lists one row per use
+    # code for the same patent/product (e.g. U-1447 and U-1448); omitting it
+    # silently collapsed ~4.7k real rows on load.
+    return "ob_pat|{}|{}|{}|{}|{}".format(
         (record.get("appl_type") or "").upper(),
         record.get("appl_no") or "",
         record.get("product_no") or "",
         record.get("patent_number") or "",
+        record.get("patent_use_code") or "",
     )
 
 
 def exclusivity_source_key(record: dict[str, Any]) -> str:
-    return "ob_excl|{}|{}|{}|{}".format(
+    # The same exclusivity code can appear more than once for a product with
+    # different expiry dates (e.g. two ODE* rows), so the date disambiguates.
+    return "ob_excl|{}|{}|{}|{}|{}".format(
         (record.get("appl_type") or "").upper(),
         record.get("appl_no") or "",
         record.get("product_no") or "",
         record.get("exclusivity_code") or "",
+        record.get("exclusivity_date") or "",
     )
 
 

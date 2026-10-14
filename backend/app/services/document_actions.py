@@ -177,6 +177,63 @@ def document_file_path(session: Session, module: str) -> tuple[SourceDocument, P
     return document, _artifact_path(document)
 
 
+def document_bytes(session: Session, module: str) -> tuple[SourceDocument, bytes]:
+    """Read the current source artifact into memory for inline inspection."""
+    document, path = document_file_path(session, module)
+    return document, path.read_bytes()
+
+
+def document_rows(session: Session, module: str) -> dict[str, Any]:
+    """Return the current source artifact as a real, inline-viewable table.
+
+    Only formats the platform actually ingests (xlsx/xls and delimited text)
+    can be rendered as rows; binary PDFs and zips are reported as unsupported
+    so the UI can offer the raw file instead of fabricating a table.
+    """
+    document, path = document_file_path(session, module)
+    kind = document_kind(document)
+    if kind in ("xlsx", "xls"):
+        from app.parsers import excel as xl
+
+        rows = xl.sheet_rows(path.read_bytes(), filename=document.filename or "")
+        grid = [[_cell_text(cell) for cell in row] for row in rows]
+    elif kind in ("csv", "txt", "tsv"):
+        delimiter = "\t" if kind == "tsv" else ","
+        text = path.read_text(encoding="utf-8", errors="replace")
+        import csv
+        import io
+
+        grid = [[_cell_text(cell) for cell in row] for row in csv.reader(io.StringIO(text), delimiter=delimiter)]
+    else:
+        return {
+            "supported": False,
+            "document_kind": kind,
+            "filename": display_filename(document, kind),
+            "message": "This document format cannot be rendered as a table; open the file instead.",
+        }
+
+    grid = [row for row in grid if any(str(cell).strip() for cell in row)]
+    header = grid[0] if grid else []
+    body = grid[1:] if grid else []
+    return {
+        "supported": True,
+        "document_kind": kind,
+        "filename": display_filename(document, kind),
+        "header": header,
+        "rows": body[:1000],
+        "total_rows": len(body),
+        "truncated": len(body) > 1000,
+    }
+
+
+def _cell_text(value: Any) -> str:
+    if value is None:
+        return ""
+    if isinstance(value, float) and value.is_integer():
+        return str(int(value))
+    return str(value)
+
+
 def official_document_file_path(session: Session, module: str) -> tuple[SourceDocument, Path] | None:
     """File path for the module's official regulator document, if archived."""
     document = official_document(session, module)

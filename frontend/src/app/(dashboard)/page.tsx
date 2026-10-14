@@ -340,7 +340,7 @@ export default function CommandCenterPage() {
             icon={<Sparkles className="h-3.5 w-3.5" />}
             bodyClassName="space-y-2.5 p-3"
             actions={
-              <Link href="/changes" className="text-[11px] font-medium text-primary hover:underline">
+              <Link href="/intelligence" className="text-[11px] font-medium text-primary hover:underline">
                 View all
               </Link>
             }

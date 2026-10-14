@@ -490,6 +490,44 @@ export interface SourceDocumentMeta {
   storage_backend?: string;
 }
 
+export interface SourceDocumentContent {
+  supported: boolean;
+  document_kind?: string;
+  filename?: string;
+  header?: string[];
+  rows?: string[][];
+  total_rows?: number;
+  truncated?: boolean;
+  message?: string;
+}
+
+export interface TodayActivity {
+  date: string;
+  generated_at: string;
+  sweeps: {
+    runs: number;
+    completed: number;
+    failed: number;
+    running: number;
+    sources_checked: number;
+    sources_changed: number;
+    last_status: string | null;
+    last_at: string | null;
+    last_changes: number;
+    last_alerts: number;
+  };
+  changes: { material: number; baseline: number };
+  insights: number;
+  alerts: { created: number; open: number };
+  items: Array<{
+    kind: string;
+    title: string;
+    detail?: string | null;
+    at: string;
+    status?: string | null;
+  }>;
+}
+
 export interface ModuleComparison {
   module: string;
   source_code?: string;

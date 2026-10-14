@@ -3,6 +3,8 @@ source-document access and per-user alert subscriptions."""
 
 from __future__ import annotations
 
+from typing import Any
+
 from fastapi import APIRouter, Query, Request
 from fastapi.responses import FileResponse
 from sqlalchemy import select
@@ -54,6 +56,21 @@ def module_document_view(module: str, session: SessionDep, principal: PrincipalD
         filename=document_actions.display_filename(document, kind),
         content_disposition_type="inline",
     )
+
+
+@router.get("/sources/{module}/document/content", summary="Render the current source document as an inline table")
+def module_document_content(module: str, session: SessionDep, principal: PrincipalDep) -> dict:
+    """Return the real rows of the source workbook for inline viewing.
+
+    "View" must show the file, not download it. Excel/CSV sources are parsed
+    into a header plus rows straight from the artifact; PDFs and archives
+    report ``supported: false`` so the UI opens the raw file instead.
+    """
+    if module not in _MODULES:
+        raise NotFoundError(f"unknown module {module!r}")
+    payload = document_actions.document_rows(session, module)
+    document_actions.record_access(session, module=module, action="view_source", actor=principal.username)
+    return payload
 
 
 @router.get("/sources/{module}/document/download", summary="Download the current source document")
@@ -198,6 +215,106 @@ def test_delivery(principal: PrincipalDep) -> dict:
 @router.get("/comparison/documents/{before_id}/{after_id}", summary="Diff two source document versions")
 def compare_documents(before_id: str, after_id: str, session: SessionDep) -> dict:
     return comparison_service.diff_between_documents(session, before_id, after_id)
+
+
+@router.get("/activity/today", summary="Today's monitoring activity across every source")
+def activity_today(session: SessionDep) -> dict:
+    """Everything the platform did today, from real run and change records.
+
+    Powers the bottom activity bar: how many sweeps ran, what they detected,
+    and the newest events. Figures come straight from the pipeline runs,
+    detected changes, insights and alerts tables — nothing is synthesised.
+    """
+    from datetime import datetime, time, timezone
+
+    from sqlalchemy import func
+
+    from app.db.models import Alert, DetectedChange, Insight, PipelineRun
+
+    today = datetime.now(timezone.utc).date()
+    start = datetime.combine(today, time.min)
+
+    runs = list(
+        session.scalars(
+            select(PipelineRun)
+            .where(PipelineRun.started_at >= start)
+            .order_by(PipelineRun.started_at.desc())
+        )
+    )
+    last_run = runs[0] if runs else None
+    sweeps = {
+        "runs": len(runs),
+        "completed": sum(1 for r in runs if r.status == "completed"),
+        "failed": sum(1 for r in runs if r.status in ("failed", "completed_with_errors")),
+        "running": sum(1 for r in runs if r.status == "running"),
+        "sources_checked": sum(r.sources_checked for r in runs),
+        "sources_changed": sum(r.sources_changed for r in runs),
+        "last_status": last_run.status if last_run else None,
+        "last_at": last_run.started_at.isoformat() if last_run else None,
+        "last_changes": last_run.changes_detected if last_run else 0,
+        "last_alerts": last_run.alerts_created if last_run else 0,
+    }
+
+    material = session.scalar(
+        select(func.count())
+        .select_from(DetectedChange)
+        .where(DetectedChange.detected_at >= start, DetectedChange.is_baseline.is_(False))
+    ) or 0
+    baseline = session.scalar(
+        select(func.count())
+        .select_from(DetectedChange)
+        .where(DetectedChange.detected_at >= start, DetectedChange.is_baseline.is_(True))
+    ) or 0
+    insights_today = session.scalar(
+        select(func.count()).select_from(Insight).where(Insight.created_at >= start)
+    ) or 0
+    alerts_today = session.scalar(
+        select(func.count()).select_from(Alert).where(Alert.created_at >= start)
+    ) or 0
+    open_alerts = session.scalar(
+        select(func.count()).select_from(Alert).where(Alert.status == "open")
+    ) or 0
+
+    items: list[dict[str, Any]] = []
+    for run in runs[:8]:
+        items.append(
+            {
+                "kind": "sweep",
+                "title": f"Automatic sweep {run.status.replace('_', ' ')}",
+                "detail": f"{run.sources_checked} sources checked · {run.changes_detected} changes · {run.alerts_created} alerts",
+                "at": run.started_at.isoformat(),
+                "status": run.status,
+            }
+        )
+    recent_changes = list(
+        session.scalars(
+            select(DetectedChange)
+            .where(DetectedChange.detected_at >= start, DetectedChange.is_baseline.is_(False))
+            .order_by(DetectedChange.detected_at.desc())
+            .limit(10)
+        )
+    )
+    for change in recent_changes:
+        items.append(
+            {
+                "kind": "change",
+                "title": f"{change.change_type.title()} {change.entity_type.replace('_', ' ')}",
+                "detail": change.summary or change.source_key,
+                "at": change.detected_at.isoformat(),
+                "status": change.module,
+            }
+        )
+    items.sort(key=lambda item: item["at"], reverse=True)
+
+    return {
+        "date": today.isoformat(),
+        "generated_at": datetime.now(timezone.utc).isoformat(),
+        "sweeps": sweeps,
+        "changes": {"material": material, "baseline": baseline},
+        "insights": insights_today,
+        "alerts": {"created": alerts_today, "open": open_alerts},
+        "items": items[:15],
+    }
 
 
 @router.get("/comparison/{module}", summary="Previous vs current version for a module")

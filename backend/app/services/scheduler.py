@@ -7,8 +7,8 @@ diffed, analysed and alerted on without anyone visiting the site.
 
 Production runs the same pipeline from the Airflow DAGs in ``backend/dags``;
 this in-process loop is the local/dev equivalent and is disabled by setting
-``SCHEDULER_ENABLED=false``. It deliberately serialises runs (a file lock) so
-the API-triggered path and the scheduled path can never overlap.
+``SCHEDULER_ENABLED=false``. Overlap is prevented by ``run_pipeline``'s own
+single-flight lock, which the scheduled, API and CLI paths all share.
 """
 
 from __future__ import annotations
@@ -22,7 +22,6 @@ from app.core.logging import get_logger
 
 log = get_logger(__name__)
 
-_lock = threading.Lock()
 _last_run_at: datetime | None = None
 _next_run_at: datetime | None = None
 _last_result: dict | None = None
@@ -41,36 +40,38 @@ def status() -> dict:
 
 def _run_once() -> None:
     global _last_run_at, _last_result
-    if not _lock.acquire(blocking=False):
-        log.warning("scheduler: previous run still in progress, skipping tick")
-        return
-    try:
-        from app.services.pipeline import run_pipeline
+    from app.core.errors import ConflictError
+    from app.services.pipeline import run_pipeline
 
-        started = datetime.now(UTC)
+    started = datetime.now(UTC)
+    try:
         log.info("scheduler: starting automatic source sweep")
         result = run_pipeline(trigger="scheduled")
-        _last_run_at = started
-        _last_result = {
-            "status": result.status,
-            "sources_checked": result.sources_checked,
-            "sources_changed": result.sources_changed,
-            "changes_detected": result.changes_detected,
-            "insights_generated": result.insights_generated,
-            "alerts_created": result.alerts_created,
-            "duration_ms": result.duration_ms,
-        }
-        log.info(
-            "scheduler: sweep complete — %d changed, %d new changes, %d alerts in %d ms",
-            result.sources_changed,
-            result.changes_detected,
-            result.alerts_created,
-            result.duration_ms,
-        )
+    except ConflictError:
+        # ``run_pipeline`` holds a single-flight lock shared with the API and CLI
+        # paths, so a manual run in progress simply skips this tick.
+        log.warning("scheduler: previous run still in progress, skipping tick")
+        return
     except Exception as exc:  # pragma: no cover - the loop must never die
         log.exception("scheduler: sweep failed: %s", exc)
-    finally:
-        _lock.release()
+        return
+    _last_run_at = started
+    _last_result = {
+        "status": result.status,
+        "sources_checked": result.sources_checked,
+        "sources_changed": result.sources_changed,
+        "changes_detected": result.changes_detected,
+        "insights_generated": result.insights_generated,
+        "alerts_created": result.alerts_created,
+        "duration_ms": result.duration_ms,
+    }
+    log.info(
+        "scheduler: sweep complete — %d changed, %d new changes, %d alerts in %d ms",
+        result.sources_changed,
+        result.changes_detected,
+        result.alerts_created,
+        result.duration_ms,
+    )
 
 
 def _loop() -> None:

@@ -37,6 +37,8 @@ import type {
   SearchResult,
   SourceDefinition,
   SourceDocumentMeta,
+  SourceDocumentContent,
+  TodayActivity,
   TokenResponse,
 } from "@/types/api";
 
@@ -161,6 +163,9 @@ export const api = {
   moduleSummaries: () => request<Record<string, Record<string, number>>>("/dashboard/module-summaries"),
   moduleSource: (module: string) =>
     request<SourceDocumentMeta>(`/sources/${module}/document`),
+  moduleDocumentContent: (module: string) =>
+    request<SourceDocumentContent>(`/sources/${module}/document/content`),
+  activityToday: () => request<TodayActivity>("/activity/today"),
   moduleComparison: (module: string, limit = 200) =>
     request<ModuleComparison>(`/sources/comparison/${module}${qs({ limit })}`),
   charts: () => request<DashboardCharts>("/dashboard/charts/all"),

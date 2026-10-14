@@ -304,3 +304,49 @@ def test_ftf_records_default_to_published_order(client):
         finally:
             db.close()
 
+
+
+def test_alert_summary_returns_the_keys_the_ui_reads(client):
+    """The Alerts KPIs and the sidebar badge read these exact keys.
+
+    Regression: ``alert_summary`` once returned only ``open_total``/``by_priority``,
+    so every KPI card and the badge silently rendered zero.
+    """
+    token = _token(client, "tester@pharma-intel.local", "TestPass!234")
+    response = client.get("/api/v1/alerts/summary", headers={"Authorization": f"Bearer {token}"})
+    assert response.status_code == 200, response.text
+    body = response.json()
+    for key in ("open", "critical", "high", "medium", "low", "total", "by_module"):
+        assert key in body, f"alert summary is missing {key!r}: {body}"
+
+
+def test_activity_today_reports_real_run_shape(client):
+    token = _token(client, "tester@pharma-intel.local", "TestPass!234")
+    response = client.get("/api/v1/activity/today", headers={"Authorization": f"Bearer {token}"})
+    assert response.status_code == 200, response.text
+    body = response.json()
+    assert "sweeps" in body and "runs" in body["sweeps"]
+    assert {"material", "baseline"} <= set(body["changes"])
+    assert "created" in body["alerts"] and "open" in body["alerts"]
+    assert isinstance(body["items"], list)
+
+
+def test_module_document_content_never_fabricates_a_table(client):
+    """``/sources/{module}/document/content`` returns real rows or says so.
+
+    It must either give real parsed rows, or ``supported: false`` so the UI opens
+    the raw file. It must never 500 on a format it cannot tabulate.
+    """
+    token = _token(client, "tester@pharma-intel.local", "TestPass!234")
+    headers = {"Authorization": f"Bearer {token}"}
+    for module in ("ftf", "pte", "pde", "orange_book"):
+        response = client.get(f"/api/v1/sources/{module}/document/content", headers=headers)
+        assert response.status_code in {200, 404}, f"{module}: {response.status_code} {response.text}"
+        if response.status_code != 200:
+            continue
+        body = response.json()
+        assert "supported" in body
+        if body["supported"]:
+            assert isinstance(body.get("header"), list)
+            assert isinstance(body.get("rows"), list)
+

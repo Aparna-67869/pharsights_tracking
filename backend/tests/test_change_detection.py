@@ -139,3 +139,37 @@ def test_invalid_rows_are_rejected_before_storage(session):
     )
     assert delta.counts()["added"] == 1
     assert session.query(FtfRecord).count() == 1
+
+
+def test_orange_book_product_loader_accepts_every_parser_field(session):
+    """Regression: the loader passed a field the ORM model never declared.
+
+    ``load_orange_book_products`` forwards ``appl_no_normalized`` (added by the
+    parser and by ``reconcile_schema``), but ``OrangeBookProduct`` had no such
+    attribute, so every real Orange Book data-file load raised
+    ``TypeError: 'appl_no_normalized' is an invalid keyword argument`` and the
+    sweep ended ``completed_with_errors``. Driving the real parser output through
+    the real loader keeps the model and the load contract in step.
+    """
+    from app.db.models import OrangeBookProduct
+    from app.parsers import orange_book as ob_parser
+
+    records = ob_parser.parse_products(
+        b"Ingredient~DF;Route~Trade_Name~Applicant~Strength~Appl_Type~Appl_No~"
+        b"Product_No~TE_Code~Approval_Date~RLD~RS~Type~Applicant_Full_Name\n"
+        b"LIPITOR~TABLET;ORAL~LIPITOR~PFIZER~20MG~N~021366~001~AB~"
+        b"Dec 17, 1996~Yes~No~RX~PFIZER INC\n"
+    )
+    assert records, "parser returned no rows"
+    assert records[0]["appl_no_normalized"], "parser must supply appl_no_normalized"
+
+    delta = loader.load_orange_book_products(
+        session, "fda_ob_data_files", records, document=None, run_id=None, is_baseline=True
+    )
+    assert delta.counts()["added"] == 1
+
+    row = session.query(OrangeBookProduct).one()
+    # ``normalize_nda_number`` drops the leading zero from the application number.
+    assert row.appl_no_normalized == "21366"
+    assert row.appl_no == "021366"
+

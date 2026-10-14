@@ -14,8 +14,11 @@ from app.api.schemas import (
     SourceDocumentOut,
     SourceOut,
 )
-from app.core.errors import NotFoundError
+from app.core.errors import ConflictError, NotFoundError
+from app.core.logging import get_logger
 from app.db.models import CollectionRun, PipelineRun, SourceDefinition, SourceDocument
+
+log = get_logger(__name__)
 
 router = APIRouter(prefix="/sources", tags=["sources"], dependencies=[Depends(require_scope("read:data"))])
 
@@ -109,6 +112,11 @@ def trigger_pipeline(
     The run executes in the background so the request returns immediately; poll
     ``/pipeline/runs`` for the outcome.
     """
+    from app.services.pipeline import pipeline_is_running, run_pipeline
+
+    if pipeline_is_running():
+        raise ConflictError("A pipeline run is already in progress")
+
     audit(
         session,
         actor=principal.username,
@@ -120,16 +128,20 @@ def trigger_pipeline(
     session.commit()
 
     def _run() -> None:
-        from app.services.pipeline import run_pipeline
-
-        run_pipeline(
-            modules=payload.modules,
-            source_codes=payload.source_codes,
-            trigger=f"api:{principal.username}",
-            skip_graph=payload.skip_graph,
-            skip_index=payload.skip_index,
-            skip_alerts=payload.skip_alerts,
-        )
+        try:
+            run_pipeline(
+                modules=payload.modules,
+                source_codes=payload.source_codes,
+                trigger=f"api:{principal.username}",
+                skip_graph=payload.skip_graph,
+                skip_index=payload.skip_index,
+                skip_alerts=payload.skip_alerts,
+            )
+        except ConflictError:
+            # The scheduler can win the slot in the instant between the probe
+            # above and this background task; that sweep already covers the
+            # request, so the tick is simply dropped rather than erroring.
+            log.warning("pipeline run requested while another is in progress; skipping")
 
     background.add_task(_run)
     return {"status": "accepted", "message": "Pipeline run started in the background"}

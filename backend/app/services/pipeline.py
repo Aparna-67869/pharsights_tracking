@@ -6,6 +6,7 @@ idempotent: running it twice against unchanged sources produces zero new changes
 
 from __future__ import annotations
 
+import threading
 import time
 from collections.abc import Callable
 from dataclasses import dataclass, field
@@ -18,6 +19,7 @@ from app.collectors.base import ensure_source_definition
 from app.collectors.modules import build_collector
 from app.collectors.registry import ALL_SOURCES
 from app.core.events import Topics, publish_event
+from app.core.errors import ConflictError
 from app.core.logging import get_logger
 from app.db.base import utcnow
 from app.db.models import DetectedChange, PipelineRun, SourceDocument
@@ -29,6 +31,17 @@ from app.intelligence.engine import analyze_pending_changes
 from app.search.index import index_all
 
 log = get_logger(__name__)
+
+# Guards ``run_pipeline`` so the scheduler, the API and the CLI never overlap.
+_pipeline_lock = threading.Lock()
+
+
+def pipeline_is_running() -> bool:
+    """True while a pipeline run holds the single-flight slot."""
+    if _pipeline_lock.acquire(blocking=False):
+        _pipeline_lock.release()
+        return False
+    return True
 
 
 @dataclass
@@ -190,7 +203,40 @@ def run_pipeline(
     skip_alerts: bool = False,
     progress: Callable[[str], None] | None = None,
 ) -> PipelineResult:
-    """Execute the full pipeline. Returns a summary result."""
+    """Execute the full pipeline. Returns a summary result.
+
+    Only one pipeline may run at a time. On SQLite the whole database has a
+    single writer, so an overlapping sweep and manual run collide with
+    ``database is locked`` and leave a run stuck in ``running``; the shared
+    scheduler lock is held for the duration so a second caller is refused
+    instead of racing.
+    """
+    if not _pipeline_lock.acquire(blocking=False):
+        raise ConflictError("A pipeline run is already in progress")
+    try:
+        return _run_pipeline_locked(
+            modules=modules,
+            source_codes=source_codes,
+            trigger=trigger,
+            skip_graph=skip_graph,
+            skip_index=skip_index,
+            skip_alerts=skip_alerts,
+            progress=progress,
+        )
+    finally:
+        _pipeline_lock.release()
+
+
+def _run_pipeline_locked(
+    *,
+    modules: list[str] | None = None,
+    source_codes: list[str] | None = None,
+    trigger: str = "manual",
+    skip_graph: bool = False,
+    skip_index: bool = False,
+    skip_alerts: bool = False,
+    progress: Callable[[str], None] | None = None,
+) -> PipelineResult:
     started = time.time()
     run_id = ""
 

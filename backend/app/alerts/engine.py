@@ -211,6 +211,13 @@ def dispatch_alerts(session: Session, *, insights: list[Insight] | None = None) 
 
 
 def alert_summary(session: Session) -> dict[str, Any]:
+    """Counts the UI needs: open-by-priority plus lifetime totals.
+
+    The Alerts page and the alert badge read ``open``/``critical``/``high``/
+    ``medium``/``low`` and ``by_module`` directly, so this returns those keys
+    (previously it returned only ``open_total``/``by_priority``, which left the
+    KPI cards and the sidebar badge reading zero).
+    """
     from sqlalchemy import func
 
     rows = session.execute(
@@ -219,10 +226,25 @@ def alert_summary(session: Session) -> dict[str, Any]:
         .group_by(Alert.priority_label)
     ).all()
     by_label = {label: count for label, count in rows}
-    total_open = sum(by_label.values())
+    open_total = sum(by_label.values())
     total = session.scalar(select(func.count()).select_from(Alert)) or 0
+
+    module_rows = session.execute(
+        select(Alert.module, func.count(Alert.id))
+        .where(Alert.status == "open")
+        .group_by(Alert.module)
+    ).all()
+    by_module = {module: count for module, count in module_rows}
+
     return {
-        "open_total": total_open,
         "total": total,
+        "open": open_total,
+        "critical": by_label.get("critical", 0),
+        "high": by_label.get("high", 0),
+        "medium": by_label.get("medium", 0),
+        "low": by_label.get("low", 0),
+        # Retained for callers already reading the older keys.
+        "open_total": open_total,
         "by_priority": by_label,
+        "by_module": by_module,
     }

@@ -43,6 +43,7 @@ export default function AlertsPage() {
 
   const alerts = useQuery({ queryKey: ["alerts", params], queryFn: () => api.alerts(params) });
   const summary = useQuery({ queryKey: ["alert-summary"], queryFn: () => api.alertSummary() });
+  const channels = useQuery({ queryKey: ["delivery-channels"], queryFn: () => api.deliveryChannels() });
 
   const mutation = useMutation({
     mutationFn: ({ id, next }: { id: string; next: string }) => api.updateAlert(id, { status: next }),
@@ -237,25 +238,30 @@ export default function AlertsPage() {
           <Card>
             <CardHeader>
               <CardTitle>Notification channels</CardTitle>
-              <p className="mt-0.5 text-xs text-muted-foreground">Where dispatched alerts are delivered</p>
+              <p className="mt-0.5 text-xs text-muted-foreground">Live delivery configuration for this deployment</p>
             </CardHeader>
             <CardContent className="space-y-2 text-xs">
-              {[
-                { name: "Dashboard", detail: "Real-time WebSocket push" },
-                { name: "Email", detail: "SMTP relay / Graph API" },
-                { name: "Microsoft Teams", detail: "Incoming webhook" },
-                { name: "Slack", detail: "Bot token / webhook" },
-              ].map((channel) => (
+              {(channels.data?.channels ?? []).map((channel) => (
                 <div key={channel.name} className="flex items-center gap-2 rounded-lg border border-border/70 bg-surface/40 px-3 py-2">
                   <span className="grid h-6 w-6 place-items-center rounded bg-muted/60">
-                    {CHANNEL_ICONS[channel.name.toLowerCase().split(" ")[0]] ?? <Send className="h-3 w-3" />}
+                    {CHANNEL_ICONS[channel.name] ?? <Send className="h-3 w-3" />}
                   </span>
-                  <div>
-                    <p className="font-medium">{channel.name}</p>
-                    <p className="text-[10px] text-muted-foreground">{channel.detail}</p>
+                  <div className="min-w-0 flex-1">
+                    <p className="font-medium capitalize">{channel.name}</p>
+                    <p className="text-[10px] text-muted-foreground">
+                      {channel.configured ? "Configured — alerts are dispatched here" : "Not configured on this deployment"}
+                    </p>
                   </div>
+                  <Badge variant={channel.configured ? "success" : "secondary"} className="text-[10px]">
+                    {channel.configured ? "on" : "off"}
+                  </Badge>
                 </div>
               ))}
+              {channels.data?.identity_email ? (
+                <p className="pt-1 text-[10px] text-muted-foreground">
+                  Email notifications are addressed to {channels.data.identity_email}.
+                </p>
+              ) : null}
             </CardContent>
           </Card>
         </div>

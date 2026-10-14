@@ -99,8 +99,13 @@ The SOP mandates that each module mirrors what the analyst sees on the source pa
 
 - One shell (`components/layout/app-shell.tsx`) wraps every dashboard route:
   a Bloomberg-style top bar with global search, a collapsible grouped left nav
-  (`nav-config.ts`), the live ticker strip, and the Copilot drawer. Pages render
-  only their own body.
+  (`nav-config.ts`), the bottom live activity bar, and the Copilot drawer. Pages
+  render only their own body.
+- The bottom bar is `components/layout/activity-bar.tsx`, fed by
+  `GET /api/v1/activity/today`. It replaced the old `ticker-strip.tsx`, which was
+  dead code (never imported, so no bottom bar rendered). Do not reintroduce a
+  static ticker of corpus totals — the activity bar reports what the platform
+  actually *did* today (sweeps, changes, insights, alerts), which is the point.
 - `globals.css` owns the design tokens. Three themes cycle dark → light →
   high-contrast via `theme-provider.tsx` (localStorage key `pharma.theme`).
   Premium primitive classes there: `panel`, `glass`, `ticker`, `live-dot`,
@@ -117,6 +122,14 @@ The SOP mandates that each module mirrors what the analyst sees on the source pa
 - `GET /api/v1/audit` — read the immutable `audit_logs` trail. Ordering and the
   `created_at` output field both derive from the model's `occurred_at`; there is
   no `created_at` column.
+- `GET /api/v1/activity/today` — real counts of what ran today (pipeline runs,
+  detected changes split material vs baseline, insights, alerts) plus the newest
+  events. Powers the bottom activity bar. All figures are queried from the live
+  tables; never synthesise them.
+- `GET /api/v1/sources/{module}/document/content` — the current source workbook
+  parsed into a header + rows for inline viewing (xlsx/xls/csv/txt). PDFs and
+  zips return `supported: false` so the UI opens the raw file rather than faking
+  a table. Backed by `document_actions.document_rows`.
 - `GET /api/v1/opportunities` — scored near-term generic-entry watchlist
   (`{total, by_band, top, sponsor_leaderboard}`).
 - `GET/POST/DELETE /api/v1/subscriptions` — per-user alert subscriptions. Delivery
@@ -125,8 +138,29 @@ The SOP mandates that each module mirrors what the analyst sees on the source pa
 - Alert fan-out: `app/alerts/engine.py` calls
   `alert_dispatcher.dispatch_to_subscribers` after creating each alert. Keep that
   call inside its try/except — subscriber delivery must never break the pipeline.
+- `alert_summary()` must return `open`, `critical`, `high`, `medium`, `low`,
+  `by_module` **and** `total` — the Alerts KPI cards and the sidebar badge read
+  those keys directly. Returning only `open_total`/`by_priority` (the old shape)
+  silently left every KPI and the badge at zero. `open_total`/`by_priority` are
+  retained for older callers.
 - `DetectedChange` uses `document_id` (not `source_document_id`);
-  `PipelineRun` uses `trigger` (not `kind`).
+  `PipelineRun` uses `trigger` (not `kind`). `PipelineRun` has `alerts_created`.
+
+## Admin surface (real data, correct paths)
+
+- The Administration page (`app/(dashboard)/admin/page.tsx`) is the single admin
+  surface: subscriptions (create/delete), accounts (list/create/role change/
+  activate), the source registry and the audit trail.
+- Correct endpoint paths — do NOT use `/users` or `/notifications/channels` (both
+  404): accounts are `/auth/users` (admin only, `api.users()`), delivery channel
+  config is `/delivery-channels` (`api.deliveryChannels()`).
+- There is no account-delete endpoint; deactivate via `PATCH /auth/users/{id}`
+  with `is_active: false` (`api.updateUser`). Do not add a destructive delete
+  route just to wire a trash icon.
+- New accounts start as `viewer` (`POST /auth/users`, admin only).
+- The alert "Notification channels" panel on `/alerts` reads
+  `deliveryChannels()` — it shows which channels are actually configured, not a
+  hardcoded list of four.
 
 ## Gotchas
 
@@ -246,3 +280,27 @@ The SOP mandates that each module mirrors what the analyst sees on the source pa
   before copying, otherwise a rebuild leaves stale chunks and the server keeps
   serving the old bundle (its manifest points at new hashes, so pages 404 their
   chunks).
+
+## Orange Book data-file fidelity and run serialisation
+
+- **Natural keys must include every field that distinguishes a published row.**
+  The Orange Book data files list one row per (application, product, patent,
+  use code) and per (application, product, exclusivity code, date). Omitting
+  `patent_use_code` from `patent_source_key` collapsed 22,438 published patent
+  rows to 17,748 on load; omitting `exclusivity_date` did the same for
+  exclusivity. Both now include the extra field (`app/parsers/orange_book.py`).
+  When a key looks correct but a load stores fewer rows than the parser
+  produced, the difference is a key collision - investigate, don't assume dedup.
+- **`sync_versioned_records` logs "duplicate natural key" at WARNING** for every
+  collapse. That warning count is the signal that a key is losing real rows.
+- **Only one pipeline may run at a time.** `run_pipeline` holds
+  `app.services.pipeline._pipeline_lock` for its whole duration; the scheduler,
+  the API trigger and the CLI all share it. Without it a scheduled sweep and a
+  manual `/pipeline/run` overlap, which on SQLite raises `database is locked`
+  and leaves a run stuck in `running`. The API probes `pipeline_is_running()`
+  first and returns 409; the scheduler treats `ConflictError` as a skipped tick.
+- **`scripts/rebaseline_orange_book.py`** purges non-baseline OB change artifacts
+  and reloads the datasets from the archived document. FK delete order is
+  `notification_logs` -> `alerts` -> `insights` -> `detected_changes`; all
+  `IN (...)` deletes are chunked (SQLite bound-parameter limit).
+

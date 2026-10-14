@@ -6,6 +6,7 @@ import { Download, FileText, ShieldCheck } from "lucide-react";
 import { api } from "@/lib/api";
 import { openWithToken } from "@/lib/files";
 import { Button } from "@/components/ui/button";
+import { SourceViewerModal } from "@/components/common/source-viewer-modal";
 import { fmtDate } from "@/lib/format";
 
 /**
@@ -17,6 +18,7 @@ import { fmtDate } from "@/lib/format";
  * cannot reach fda.gov directly.
  */
 export function OfficialSourceBanner({ module }: { module: string }) {
+  const [viewerOpen, setViewerOpen] = React.useState(false);
   const source = useQuery({
     queryKey: ["module-source", module],
     queryFn: () => api.moduleSource(module),
@@ -46,20 +48,23 @@ export function OfficialSourceBanner({ module }: { module: string }) {
         </div>
       </div>
       <div className="flex shrink-0 items-center gap-2">
-        <Button
-          className="shadow-glow"
-          onClick={() => openWithToken(api.officialDocumentUrl(module, "view"))}
-        >
+        <Button className="shadow-glow" onClick={() => setViewerOpen(true)}>
           <FileText className="h-4 w-4" /> {label}
         </Button>
         <Button
           variant="outline"
-          onClick={() => openWithToken(api.officialDocumentUrl(module, "download"), true)}
+          onClick={() => openWithToken(api.sourceFileUrl(module, "download"), true)}
           title="Download the official document"
         >
           <Download className="h-4 w-4" /> Download
         </Button>
       </div>
+      <SourceViewerModal
+        module={module}
+        open={viewerOpen}
+        onClose={() => setViewerOpen(false)}
+        title={`${data.source_name ?? "Official source"} — source file`}
+      />
     </div>
   );
 }

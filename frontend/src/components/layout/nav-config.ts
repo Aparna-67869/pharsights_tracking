@@ -1,7 +1,7 @@
 import {
-  Activity,
   BarChart3,
   BellRing,
+  Brain,
   BrainCircuit,
   Building2,
   CalendarClock,
@@ -45,11 +45,11 @@ export const NAV: NavItem[] = [
 
   { href: "/search", label: "Intelligence Search", icon: Search, group: "Analysis", scope: "read:data", hint: "One box, every entity" },
   { href: "/graph", label: "Knowledge Graph", icon: Network, group: "Analysis", scope: "read:data", hint: "Explore relationships" },
-  { href: "/changes", label: "Change History", icon: Activity, group: "Analysis", scope: "read:data", hint: "Versioned source diffs" },
+  { href: "/intelligence", label: "Intelligence", icon: Brain, group: "Analysis", scope: "read:data", hint: "AI impact analyses" },
   { href: "/copilot", label: "AI Copilot", icon: BrainCircuit, group: "Analysis", scope: "use:copilot", hint: "Ask the platform" },
 
   { href: "/sources", label: "Sources & Pipeline", icon: FileSearch, group: "Operations", scope: "read:data", hint: "Collectors and runs" },
-  { href: "/admin", label: "Administration", icon: Settings2, group: "Operations", scope: "read:data", hint: "Users, audit, subscriptions" },
+  { href: "/admin", label: "Administration", icon: Settings2, group: "Operations", scope: "read:data", hint: "Access & audit" },
 ];
 
 export const NAV_GROUPS = ["Overview", "Regulatory", "Analysis", "Operations"] as const;

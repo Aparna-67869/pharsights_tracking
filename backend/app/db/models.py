@@ -447,6 +447,7 @@ class OrangeBookProduct(Base, UUIDPrimaryKey, TimestampMixin):
     strength: Mapped[str | None] = mapped_column(String(512), nullable=True)
     appl_type: Mapped[str | None] = mapped_column(String(4), nullable=True, index=True)
     appl_no: Mapped[str | None] = mapped_column(String(16), nullable=True, index=True)
+    appl_no_normalized: Mapped[str | None] = mapped_column(String(16), nullable=True, index=True)
     product_no: Mapped[str | None] = mapped_column(String(8), nullable=True)
     te_code: Mapped[str | None] = mapped_column(String(8), nullable=True)
     approval_date: Mapped[date | None] = mapped_column(Date, nullable=True, index=True)

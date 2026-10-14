@@ -5,6 +5,7 @@ import { useQuery } from "@tanstack/react-query";
 import { Download, ExternalLink, Eye, FileSpreadsheet, FileText, Package } from "lucide-react";
 import { api, getToken } from "@/lib/api";
 import { Button } from "@/components/ui/button";
+import { SourceViewerModal } from "@/components/common/source-viewer-modal";
 import { fmtDate, fmtNumber, fmtRelative } from "@/lib/format";
 import { useNow } from "@/hooks/use-now";
 import { useRealtime } from "@/components/providers/realtime-provider";
@@ -62,6 +63,7 @@ function openWithToken(url: string, download = false) {
 export function SourceProvenance({ module }: { module: string }) {
   useNow(30_000);
   const realtime = useRealtime();
+  const [viewerOpen, setViewerOpen] = React.useState(false);
   const source = useQuery({
     queryKey: ["module-source", module],
     queryFn: () => api.moduleSource(module),
@@ -145,8 +147,8 @@ export function SourceProvenance({ module }: { module: string }) {
           <Button
             size="sm"
             className="h-8 bg-primary font-medium text-primary-foreground shadow-glow hover:bg-primary/90"
-            onClick={() => openWithToken(api.officialDocumentUrl(module, "view"))}
-            title="Open the official regulator document (archived copy)"
+            onClick={() => setViewerOpen(true)}
+            title="Inspect the archived source document"
           >
             <FileText className="h-4 w-4" />
             {data.official_document_label ?? `View Official ${MODULE_TITLES[module] ?? module}`}
@@ -155,7 +157,8 @@ export function SourceProvenance({ module }: { module: string }) {
             variant="outline"
             size="sm"
             className="h-8"
-            onClick={() => openWithToken(api.sourceFileUrl(module, "view"))}
+            onClick={() => setViewerOpen(true)}
+            title="View the source file inline without downloading"
           >
             <Eye className="h-3.5 w-3.5" /> View source
           </Button>
@@ -187,6 +190,12 @@ export function SourceProvenance({ module }: { module: string }) {
           </div>
         ))}
       </dl>
+      <SourceViewerModal
+        module={module}
+        open={viewerOpen}
+        onClose={() => setViewerOpen(false)}
+        title={`${data.source_name ?? MODULE_TITLES[module] ?? module} — source file`}
+      />
     </div>
   );
 }

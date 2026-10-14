@@ -5,6 +5,7 @@ import { useQuery } from "@tanstack/react-query";
 import { api } from "@/lib/api";
 import { Sidebar } from "@/components/layout/sidebar";
 import { Topbar } from "@/components/layout/topbar";
+import { ActivityBar } from "@/components/layout/activity-bar";
 import { CopilotDrawer } from "@/components/layout/copilot-drawer";
 import { CommandPalette } from "@/components/layout/command-palette";
 import { useRealtime } from "@/components/providers/realtime-provider";
@@ -70,13 +71,19 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         collapsed={collapsed}
         onToggleCollapse={toggleCollapse}
       />
-      <div className={cn("relative z-10 transition-[padding] duration-200", collapsed ? "lg:pl-[62px]" : "lg:pl-64")}>
+      <div
+        className={cn(
+          "relative z-10 flex min-h-screen flex-col transition-[padding] duration-200",
+          collapsed ? "lg:pl-[62px]" : "lg:pl-64",
+        )}
+      >
         <Topbar
           onMenu={() => setNavOpen(true)}
           onOpenPalette={() => setPaletteOpen(true)}
           onOpenCopilot={() => setCopilotOpen(true)}
         />
-        <main className="mx-auto w-full max-w-[1760px] px-3 py-4">{children}</main>
+        <main className="mx-auto w-full max-w-[1760px] flex-1 px-3 py-4">{children}</main>
+        <ActivityBar />
       </div>
 
       <CommandPalette open={paletteOpen} onOpenChange={setPaletteOpen} />
