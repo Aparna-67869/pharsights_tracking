@@ -18,6 +18,15 @@ BE_ORIGIN="https://work-2-hoqpnvjomogubgav.prod-runtime.all-hands.dev"
 
 log() { echo "[serve $(date +%H:%M:%S)] $*"; }
 
+# Load deployment secrets from a gitignored .env before the exports below, so
+# their "${VAR:-default}" fallbacks do not shadow the file with empty values.
+if [ -f "$ROOT/.env" ]; then
+  set -a
+  # shellcheck disable=SC1091
+  . "$ROOT/.env"
+  set +a
+fi
+
 run_api() {
   cd "$ROOT/backend" || exit 1
   export ENVIRONMENT=development
