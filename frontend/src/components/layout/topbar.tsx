@@ -145,7 +145,7 @@ export function Topbar({
                     }}
                     className="flex w-full items-center gap-2 rounded-lg px-2.5 py-2 text-sm hover:bg-muted/60"
                   >
-                    <UserRound className="h-4 w-4" /> Settings & subscriptions
+                    <UserRound className="h-4 w-4" /> Administration
                   </button>
                   <button
                     onClick={() => {
