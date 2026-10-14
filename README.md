@@ -1,4 +1,4 @@
-# Pharma Intelligence Platform
+# Pharsights Intel Command Center
 
 An automated regulatory-intelligence command center for pharmaceutical
 exclusivity and patent monitoring. It watches the FDA, USPTO, and Orange Book

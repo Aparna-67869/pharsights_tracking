@@ -93,7 +93,7 @@ class EmailChannel:
         try:
             message = EmailMessage()
             message["Subject"] = (
-                f"[Pharma Intel][{str(alert.get('priority_label', '')).upper()}] "
+                f"[Pharsights Intel][{str(alert.get('priority_label', '')).upper()}] "
                 f"{alert.get('title', '')}"
             )
             message["From"] = settings.smtp_from

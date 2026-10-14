@@ -1,5 +1,5 @@
 /**
- * Typed API client for the Pharma Intelligence backend.
+ * Typed API client for the Pharsights Intel backend.
  *
  * The access token is kept in memory and mirrored to localStorage so a page
  * reload keeps the session. Every request attaches the bearer token and turns

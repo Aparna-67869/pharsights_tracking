@@ -55,7 +55,7 @@ from app.search.global_search import search as global_search
 
 log = get_logger(__name__)
 
-SYSTEM_PROMPT = """You are the Pharma Intelligence Copilot, an expert regulatory-affairs and \
+SYSTEM_PROMPT = """You are the Pharsights Intel Copilot, an expert regulatory-affairs and \
 intellectual-property analyst for a pharmaceutical company.
 
 You answer questions about FDA Paragraph IV (first-to-file) certifications, USPTO patent term \

@@ -50,7 +50,7 @@ export function Sidebar({
             </span>
             {!collapsed ? (
               <span className="flex flex-col leading-tight">
-                <span className="text-sm font-semibold tracking-tight">Pharma Intel</span>
+                <span className="text-sm font-semibold tracking-tight">Pharsights Intel</span>
                 <span className="text-[10px] uppercase tracking-[0.18em] text-sidebar-foreground/50">
                   Command Center
                 </span>

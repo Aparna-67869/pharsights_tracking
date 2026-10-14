@@ -184,7 +184,7 @@ def test_delivery(principal: PrincipalDep) -> dict:
 
     alert = {
         "id": None,
-        "title": "Test notification from Pharma Intelligence",
+        "title": "Test notification from Pharsights Intel",
         "message": "This is a delivery test sent from the Administration page.",
         "module": "platform",
         "event_type": "test_notification",

@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# End-to-end Azure deployment for the Pharma Intelligence Platform.
+# End-to-end Azure deployment for the Pharsights Intelligence Platform.
 #
 #   ./deploy/azure/deploy.sh rg-pharma-intel prod
 #

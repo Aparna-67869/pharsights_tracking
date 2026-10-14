@@ -146,7 +146,7 @@ def create_app() -> FastAPI:
         redoc_url="/redoc",
         openapi_url="/openapi.json",
         lifespan=lifespan,
-        contact={"name": "Pharma Intelligence Platform"},
+        contact={"name": "Pharsights Intel Command Center"},
         openapi_tags=[
             {"name": "auth", "description": "Authentication and identity"},
             {"name": "first-to-file", "description": "FDA Paragraph IV certifications"},

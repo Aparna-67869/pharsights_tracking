@@ -38,7 +38,7 @@ class DeliveryOutcome:
 
 
 def _subject(alert: dict[str, Any]) -> str:
-    return f"[Pharma Intel][{str(alert.get('priority_label', '')).upper()}] {alert.get('title', '')}"
+    return f"[Pharsights Intel][{str(alert.get('priority_label', '')).upper()}] {alert.get('title', '')}"
 
 
 def _body(alert: dict[str, Any]) -> str:

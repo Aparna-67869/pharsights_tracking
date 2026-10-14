@@ -100,12 +100,12 @@ def build_change_digest(changes: list[Any], *, run_id: str | None = None) -> tup
     stamp = datetime.now(UTC).strftime("%Y-%m-%d %H:%M UTC")
 
     subject = (
-        f"[Pharma Intel] {len(changes)} change(s) detected"
+        f"[Pharsights Intel] {len(changes)} change(s) detected"
         + (f" — {', '.join(modules)}" if modules else "")
     )
 
     text_lines = [
-        "Pharma Intelligence Platform — change digest",
+        "Pharsights Intel Command Center — change digest",
         f"Run {run_id or 'n/a'} · {stamp}",
         f"{len(changes)} change(s): {added} added, {updated} updated, {removed} removed",
         "",
@@ -145,7 +145,7 @@ def build_change_digest(changes: list[Any], *, run_id: str | None = None) -> tup
 
     html = (
         "<html><body style='font-family:Segoe UI,Arial,sans-serif;color:#0f172a'>"
-        "<h2 style='margin:0 0 4px'>Pharma Intelligence Platform — change digest</h2>"
+        "<h2 style='margin:0 0 4px'>Pharsights Intel Command Center — change digest</h2>"
         f"<p style='color:#475569;margin:0 0 12px'>Run {_md_cell(run_id or 'n/a')} · {stamp}<br>"
         f"{len(changes)} change(s): {added} added, {updated} updated, {removed} removed</p>"
         "<table border='1' cellspacing='0' cellpadding='6' "

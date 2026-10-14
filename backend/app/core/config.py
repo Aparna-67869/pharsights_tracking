@@ -29,7 +29,7 @@ class Settings(BaseSettings):
     )
 
     # ---- Application ----
-    app_name: str = "Pharma Intelligence Platform"
+    app_name: str = "Pharsights Intel Command Center"
     environment: str = "development"
     debug: bool = True
     api_prefix: str = "/api/v1"

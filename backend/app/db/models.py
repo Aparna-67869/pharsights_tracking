@@ -1,4 +1,4 @@
-"""SQLAlchemy 2.0 domain model for the Pharma Intelligence Platform.
+"""SQLAlchemy 2.0 domain model for the Pharsights Intel Command Center.
 
 Layout:
   * Ingestion & lineage ....... SourceDocument, CollectionRun, PipelineRun, DetectedChange

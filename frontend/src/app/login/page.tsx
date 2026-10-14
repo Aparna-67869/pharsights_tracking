@@ -103,7 +103,7 @@ export default function LoginPage() {
               <ShieldCheck className="h-6 w-6" />
             </span>
             <div>
-              <p className="text-lg font-semibold">Pharma Intelligence Platform</p>
+              <p className="text-lg font-semibold">Pharsights Intel Command Center</p>
               <p className="text-xs text-muted-foreground">Regulatory Intelligence Command Center</p>
             </div>
           </div>
@@ -142,7 +142,7 @@ export default function LoginPage() {
           <div className="glass-strong w-full max-w-sm rounded-2xl p-7">
             <div className="mb-6 flex items-center gap-2 lg:hidden">
               <ShieldCheck className="h-5 w-5 text-primary" />
-              <span className="font-semibold">Pharma Intelligence</span>
+              <span className="font-semibold">Pharsights Intel Command Center</span>
             </div>
 
             <div className="mb-5 grid grid-cols-2 gap-1 rounded-lg bg-muted/40 p-1">

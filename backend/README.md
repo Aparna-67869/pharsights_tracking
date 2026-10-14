@@ -1,4 +1,4 @@
-# Pharma Intelligence Platform — Backend
+# Pharsights Intel Command Center — Backend
 
 Regulatory intelligence platform for FDA / USPTO / Orange Book monitoring.
 

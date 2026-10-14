@@ -8,12 +8,12 @@ const mono = JetBrains_Mono({ subsets: ["latin"], variable: "--font-mono", displ
 
 export const metadata: Metadata = {
   title: {
-    default: "Pharma Intelligence Platform",
-    template: "%s · Pharma Intelligence",
+    default: "Pharsights Intel Command Center",
+    template: "%s · Pharsights Intel Command Center",
   },
   description:
     "Automated regulatory intelligence for FDA Paragraph IV certifications, USPTO patent term extensions, approved active moieties and the Orange Book.",
-  applicationName: "Pharma Intelligence Platform",
+  applicationName: "Pharsights Intel Command Center",
   robots: { index: false, follow: false },
 };
 

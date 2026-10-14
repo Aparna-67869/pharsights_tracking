@@ -1,6 +1,6 @@
 # AGENTS.md
 
-Repository memory for the Pharma Intelligence Platform (FDA / USPTO regulatory monitoring).
+Repository memory for the Pharsights Intel Command Center (FDA / USPTO regulatory monitoring).
 
 ## Layout
 

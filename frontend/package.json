@@ -2,7 +2,7 @@
   "name": "pharma-intelligence-frontend",
   "version": "1.0.0",
   "private": true,
-  "description": "Enterprise dashboard for the Pharma Intelligence Platform",
+  "description": "Enterprise dashboard for the Pharsights Intel Command Center",
   "scripts": {
     "dev": "next dev -p 3000",
     "build": "next build",
