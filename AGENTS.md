@@ -80,27 +80,32 @@ The SOP mandates that each module mirrors what the analyst sees on the source pa
 
 ## Authentication
 
-- Seeded passwords (development only, see `scripts/seed.py`):
-  `admin/admin@pharma-intel.local AdminPass!234`, `analyst@… AnalystPass!234`,
-  `ra@… RAPass!234`, `ip@… IPPass!234`, `exec@… ExecPass!234`,
-  `viewer@… ViewerPass!234`.
-- Self-registration: `POST /auth/register` (admin-only; there is no public
-  sign-up page in the UI). It always grants the least-privilege `viewer` role.
-  Email validation is deliberately pragmatic so the internal
+- **Single-account deployment (default).** The platform holds exactly one
+  account, `ALLOWED_LOGIN_EMAIL` (default `pharsightspatent@gmail.com`). It is
+  the only address that may sign in (`RESTRICT_LOGIN=true`), the only address
+  that may be created, and it cannot be disabled
+  (`BLOCK_ADDITIONAL_ACCOUNTS=true`). Any other email is refused with 401;
+  register returns 403. Non-authorized attempts are audited as `login_blocked`.
+  Set `RESTRICT_LOGIN=false` / `BLOCK_ADDITIONAL_ACCOUNTS=false` to restore the
+  normal multi-role accounts.
+- **The account is created on the sign-in page.** `POST /auth/register` is
+  public (no `Authorization`) *only* in single-account mode, and accepts only
+  `ALLOWED_LOGIN_EMAIL`; the created account is a full `admin`. A duplicate is
+  409, so the page can never silently overwrite or duplicate the account. With
+  the single-account mode off, register reverts to the admin-only flow and
+  grants least-privilege `viewer`.
+- `GET /auth/config` is public and returns
+  `{single_account, allowed_login_email}` so the sign-in page can pre-fill the
+  create form before anyone is authenticated.
+- `scripts/seed.py` no longer plants a default-password account; set
+  `SEED_ADMIN_PASSWORD` if you want bootstrap to create it up front. Reconcile an
+  existing database with `python -m scripts.lockdown_accounts` (keeps the
+  authorized account, reassigns saved views/subscriptions/conversations, deletes
+  the rest, and never creates an account).
+- Email validation is deliberately pragmatic so the internal
   `@pharma-intel.local` domain (which strict validators reject) works.
-- **Single-account lock-down (default on).** `RESTRICT_LOGIN=true` (env, default
-  true) restricts authentication to `ALLOWED_LOGIN_EMAIL` (default
-  `pharsightspatent@gmail.com`) and closes account creation entirely — even to
-  administrators. Any other email is refused with 401; register returns 403.
-  Non-authorized attempts are audited as `login_blocked`. Set
-  `RESTRICT_LOGIN=false` to restore the normal multi-role accounts.
-- **One account only (default on).** `BLOCK_ADDITIONAL_ACCOUNTS=true` additionally
-  forbids any account whose email is not `ALLOWED_LOGIN_EMAIL`, and refuses to
-  deactivate that account, so the platform cannot drift off the single address.
-  `/auth/me` reports `can_create_accounts`/`allowed_login_email` and the admin UI
-  hides the provisioning form when it is false. Reconcile an existing database
-  with `python -m scripts.lockdown_accounts` (keeps the authorized account,
-  reassigns saved views/subscriptions/conversations, deletes the rest).
+- Password rotation: `POST /auth/password` (`api.changePassword`), surfaced on
+  the `/account` page.
 
 ## Enterprise shell & design system
 
@@ -153,18 +158,15 @@ The SOP mandates that each module mirrors what the analyst sees on the source pa
 - `DetectedChange` uses `document_id` (not `source_document_id`);
   `PipelineRun` uses `trigger` (not `kind`). `PipelineRun` has `alerts_created`.
 
-## Admin surface (real data, correct paths)
+## Account surface (real data, correct paths)
 
-- The Administration page (`app/(dashboard)/admin/page.tsx`) is the single admin
-  surface: subscriptions (create/delete), accounts (list/create/role change/
-  activate), the source registry and the audit trail.
+- The `/account` page (`app/(dashboard)/account/page.tsx`) holds the signed-in
+  identity and self-service password rotation. There is no Administration page.
 - Correct endpoint paths — do NOT use `/users` or `/notifications/channels` (both
-  404): accounts are `/auth/users` (admin only, `api.users()`), delivery channel
-  config is `/delivery-channels` (`api.deliveryChannels()`).
-- There is no account-delete endpoint; deactivate via `PATCH /auth/users/{id}`
-  with `is_active: false` (`api.updateUser`). Do not add a destructive delete
-  route just to wire a trash icon.
-- New accounts start as `viewer` (`POST /auth/users`, admin only).
+  404): delivery channel config is `/delivery-channels` (`api.deliveryChannels()`).
+- There is no account-delete endpoint. The single account cannot be deactivated
+  (`BLOCK_ADDITIONAL_ACCOUNTS=true` refuses it). Do not add a destructive delete
+  route.
 - The alert "Notification channels" panel on `/alerts` reads
   `deliveryChannels()` — it shows which channels are actually configured, not a
   hardcoded list of four.

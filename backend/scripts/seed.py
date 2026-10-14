@@ -1,22 +1,26 @@
-"""Seed reference data: users, sponsors importance, and demo saved views.
+"""Seed reference data: sponsors importance and demo saved views.
 
 Run with:  python -m scripts.seed
+
+The deployment's account is created on the sign-in page by claiming
+``ALLOWED_LOGIN_EMAIL``, so this script no longer plants a default-password
+account. Set ``SEED_ADMIN_PASSWORD`` to have it create the account here instead
+(useful for non-interactive bootstrap).
 """
 
 from __future__ import annotations
 
+import os
+
 from sqlalchemy import select
 
+from app.core.config import settings
 from app.core.logging import get_logger
 from app.core.security import Role, hash_password
 from app.db.models import SavedView, User
 from app.db.session import create_all, session_scope
 
 log = get_logger(__name__)
-
-DEFAULT_USERS = [
-    ("pharsightspatent@gmail.com", "Pharsight Patent", "AdminPass!234", Role.ADMIN),
-]
 
 DEFAULT_VIEWS = [
     (
@@ -49,22 +53,26 @@ DEFAULT_VIEWS = [
 def main() -> None:
     create_all()
     with session_scope() as session:
-        for email, full_name, password, role in DEFAULT_USERS:
-            existing = session.scalars(select(User).where(User.email == email)).first()
-            if existing is None:
-                session.add(
-                    User(
-                        email=email,
-                        full_name=full_name,
-                        hashed_password=hash_password(password),
-                        role=role.value,
-                        is_active=True,
-                        preferences={},
-                    )
-                )
-                print(f"  created user {email} ({role.value})")
+        admin = session.scalars(
+            select(User).where(User.email == settings.allowed_login_email.strip().casefold())
+        ).first()
 
-        admin = session.scalars(select(User).where(User.email == DEFAULT_USERS[0][0])).first()
+        # Only create the account when a password is supplied explicitly; the
+        # normal path is the sign-in page, so nothing ships with a known default.
+        password = os.environ.get("SEED_ADMIN_PASSWORD")
+        if admin is None and password:
+            admin = User(
+                email=settings.allowed_login_email.strip().casefold(),
+                full_name="Pharsight Patent",
+                hashed_password=hash_password(password),
+                role=Role.ADMIN.value,
+                is_active=True,
+                preferences={},
+            )
+            session.add(admin)
+            session.flush()
+            print(f"  created user {admin.email} ({admin.role})")
+
         for name, module, filters, description in DEFAULT_VIEWS:
             exists = session.scalars(
                 select(SavedView).where(SavedView.name == name, SavedView.module == module)
@@ -83,9 +91,9 @@ def main() -> None:
                 print(f"  created saved view {name!r}")
 
     print()
-    print("Seed complete. Development credentials:")
-    for email, _, password, role in DEFAULT_USERS:
-        print(f"  {email:34s} {password:18s} ({role.value})")
+    print("Seed complete.")
+    if admin is None:
+        print(f"  create the account on the sign-in page as {settings.allowed_login_email}")
 
 
 if __name__ == "__main__":

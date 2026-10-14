@@ -135,21 +135,23 @@ class Settings(BaseSettings):
     metrics_enabled: bool = True
 
     # Self-service account creation. This is a company-internal platform: there
-    # is no public sign-up. Accounts are provisioned by an administrator (or the
-    # seed script); the register endpoint exists only as an admin-only tool.
+    # is no open sign-up. Accounts are created on the sign-in page by claiming
+    # ``allowed_login_email`` (see below), which is the one identity the
+    # deployment accepts.
     allow_self_registration: bool = False
 
-    # Single-account lock-down for the demonstration deployment. When enabled,
-    # only ``allowed_login_email`` may authenticate and no accounts may be
-    # created (the register endpoint is closed regardless of role). Set
-    # RESTRICT_LOGIN=false to restore normal multi-account access.
+    # Single-account deployment. Exactly one address is authorized on the
+    # platform: ``allowed_login_email``. It is the only address that may sign
+    # in, the only address that may be created on the sign-in page, and it
+    # cannot be disabled. Any other address is refused. Set RESTRICT_LOGIN=false
+    # to restore the normal multi-role accounts.
     restrict_login: bool = True
     allowed_login_email: str = "pharsightspatent@gmail.com"
 
     # When true, the single allowed address is the only account the platform
-    # will hold: administrators cannot provision additional accounts and an
-    # existing account cannot be moved onto another address. Set
-    # BLOCK_ADDITIONAL_ACCOUNTS=false to allow the normal admin-only flow.
+    # will hold: an existing account cannot be moved onto another address and
+    # no second account can be provisioned. Set BLOCK_ADDITIONAL_ACCOUNTS=false
+    # to allow the normal admin-only flow.
     block_additional_accounts: bool = True
 
     # ---- Automatic monitoring ----

@@ -12,7 +12,6 @@ import {
   LayoutDashboard,
   Network,
   Search,
-  Settings2,
   ShieldCheck,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
@@ -49,7 +48,6 @@ export const NAV: NavItem[] = [
   { href: "/copilot", label: "AI Copilot", icon: BrainCircuit, group: "Analysis", scope: "use:copilot", hint: "Ask the platform" },
 
   { href: "/sources", label: "Sources & Pipeline", icon: FileSearch, group: "Operations", scope: "read:data", hint: "Collectors and runs" },
-  { href: "/admin", label: "Administration", icon: Settings2, group: "Operations", scope: "read:data", hint: "Access & audit" },
 ];
 
 export const NAV_GROUPS = ["Overview", "Regulatory", "Analysis", "Operations"] as const;

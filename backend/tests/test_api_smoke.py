@@ -448,3 +448,49 @@ def test_change_password_rotates_the_credential(client):
         json={"current_password": "RotatedPass!234", "new_password": "TestPass!234"},
     )
 
+
+def test_signin_page_can_create_the_single_account(client, monkeypatch):
+    """On the single-account deployment the sign-in page creates the one account.
+
+    No administrator is signed in — the request carries no Authorization header —
+    because the account does not exist yet. The only address accepted is the
+    authorized one; a duplicate is a conflict and any other address is refused.
+    """
+    from app.core.config import settings
+
+    monkeypatch.setattr(settings, "restrict_login", False)
+    monkeypatch.setattr(settings, "block_additional_accounts", True)
+    monkeypatch.setattr(settings, "allowed_login_email", "signin@pharma-intel.local")
+
+    created = client.post(
+        "/api/v1/auth/register",
+        json={
+            "full_name": "Sign In User",
+            "email": "SignIn@Pharma-Intel.Local",
+            "password": "SignInPass!234",
+        },
+    )
+    assert created.status_code == 201, created.text
+    assert created.json()["email"] == "signin@pharma-intel.local"
+    assert created.json()["role"] == "admin"
+
+    # The account just created can sign in, and is the authorized identity.
+    token = _token(client, "signin@pharma-intel.local", "SignInPass!234")
+    me = client.get("/api/v1/auth/me", headers={"Authorization": f"Bearer {token}"})
+    assert me.status_code == 200, me.text
+    assert me.json()["allowed_login_email"] == "signin@pharma-intel.local"
+
+    # Creating it again conflicts rather than silently overwriting or duplicating.
+    duplicate = client.post(
+        "/api/v1/auth/register",
+        json={"full_name": "Sign In User", "email": "signin@pharma-intel.local", "password": "Other!234"},
+    )
+    assert duplicate.status_code == 409, duplicate.text
+
+    # Any other address is refused, even without authentication.
+    other = client.post(
+        "/api/v1/auth/register",
+        json={"full_name": "Intruder", "email": "intruder@example.com", "password": "IntruderPass!234"},
+    )
+    assert other.status_code == 403, other.text
+

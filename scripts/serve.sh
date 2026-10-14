@@ -34,8 +34,11 @@ run_api() {
   # Every detected change and alert is emailed here. Point SMTP_* at a relay
   # that can send as this address (for Gmail: smtp.gmail.com + an app password).
   export ALERT_EMAIL_RECIPIENTS="${ALERT_EMAIL_RECIPIENTS:-pharsightspatent@gmail.com}"
+  # The single account this deployment accepts. It is created on the sign-in
+  # page; set SEED_ADMIN_PASSWORD to have the seed script create it up front.
   export ALLOWED_LOGIN_EMAIL="${ALLOWED_LOGIN_EMAIL:-pharsightspatent@gmail.com}"
   export BLOCK_ADDITIONAL_ACCOUNTS="${BLOCK_ADDITIONAL_ACCOUNTS:-true}"
+  export SEED_ADMIN_PASSWORD="${SEED_ADMIN_PASSWORD:-}"
   export TEAMS_WEBHOOK_URL="${TEAMS_WEBHOOK_URL:-}"
   export SLACK_WEBHOOK_URL="${SLACK_WEBHOOK_URL:-}"
   export SCHEDULER_INTERVAL_MINUTES="${SCHEDULER_INTERVAL_MINUTES:-360}"

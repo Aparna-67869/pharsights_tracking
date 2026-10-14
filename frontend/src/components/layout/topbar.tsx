@@ -7,13 +7,13 @@ import {
   BellRing,
   Check,
   Contrast,
+  KeyRound,
   LogOut,
   Menu,
   Moon,
   RefreshCw,
   Search,
   Sun,
-  UserRound,
 } from "lucide-react";
 import { api } from "@/lib/api";
 import { Badge } from "@/components/ui/badge";
@@ -141,11 +141,11 @@ export function Topbar({
                   <button
                     onClick={() => {
                       setProfileOpen(false);
-                      router.push("/admin");
+                      router.push("/account");
                     }}
                     className="flex w-full items-center gap-2 rounded-lg px-2.5 py-2 text-sm hover:bg-muted/60"
                   >
-                    <UserRound className="h-4 w-4" /> Administration
+                    <KeyRound className="h-4 w-4" /> Change password
                   </button>
                   <button
                     onClick={() => {

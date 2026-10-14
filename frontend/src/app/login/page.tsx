@@ -2,40 +2,95 @@
 
 import * as React from "react";
 import { useRouter } from "next/navigation";
-import { Activity, Database, GitCompareArrows, Loader2, Lock, ShieldCheck } from "lucide-react";
+import {
+  Activity,
+  Database,
+  GitCompareArrows,
+  Loader2,
+  Lock,
+  ShieldCheck,
+  UserPlus,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { api, ApiError } from "@/lib/api";
 import { useAuth } from "@/components/providers/auth-provider";
 
 /**
- * Sign-in only. This is a company-internal platform: there is no public
- * self-registration. Accounts are provisioned by an administrator, so the page
- * exposes a single authentication path.
+ * Sign-in and account creation.
+ *
+ * This deployment is single-account: the platform accepts exactly one address,
+ * which is created here on first use and then signed in with. The email field
+ * is therefore fixed to that address when the API reports one; if the account
+ * already exists, creation is refused and the user is pointed at sign-in.
  */
 export default function LoginPage() {
   const { login, user, loading } = useAuth();
   const router = useRouter();
+  const [mode, setMode] = React.useState<"signin" | "create">("signin");
   const [username, setUsername] = React.useState("");
+  const [fullName, setFullName] = React.useState("");
   const [password, setPassword] = React.useState("");
   const [submitting, setSubmitting] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
+  const [notice, setNotice] = React.useState<string | null>(null);
+  const [allowedEmail, setAllowedEmail] = React.useState<string | null>(null);
 
   React.useEffect(() => {
     if (!loading && user) router.replace("/");
   }, [loading, user, router]);
 
+  // The API tells us the one address this deployment accepts, so the create
+  // form can be pre-filled rather than guessed. This endpoint is public, so it
+  // works before anyone has signed in.
+  React.useEffect(() => {
+    let cancelled = false;
+    void (async () => {
+      try {
+        const config = await api.authConfig();
+        if (!cancelled) setAllowedEmail(config.allowed_login_email);
+      } catch {
+        /* nothing to prefill */
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
   const submit = async (event: React.FormEvent) => {
     event.preventDefault();
     setError(null);
+    setNotice(null);
     setSubmitting(true);
     try {
-      await login(username, password);
+      if (mode === "signin") {
+        await login(username, password);
+        return;
+      }
+      await api.register({
+        full_name: fullName,
+        email: allowedEmail ?? username,
+        password,
+      });
+      setNotice("Account created. Signing you in…");
+      await login(allowedEmail ?? username, password);
     } catch (err) {
-      const message = err instanceof Error && err.message ? err.message : "Those credentials were not accepted.";
-      setError(message);
+      if (err instanceof ApiError && err.status === 409) {
+        setError("That account already exists. Switch to Sign in and use your password.");
+        setMode("signin");
+      } else {
+        setError(err instanceof Error && err.message ? err.message : "Something went wrong.");
+      }
     } finally {
       setSubmitting(false);
     }
+  };
+
+  const switchMode = (next: "signin" | "create") => {
+    setMode(next);
+    setError(null);
+    setNotice(null);
   };
 
   return (
@@ -89,25 +144,73 @@ export default function LoginPage() {
               <ShieldCheck className="h-5 w-5 text-primary" />
               <span className="font-semibold">Pharma Intelligence</span>
             </div>
-            <h2 className="text-lg font-semibold">Sign in</h2>
+
+            <div className="mb-5 grid grid-cols-2 gap-1 rounded-lg bg-muted/40 p-1">
+              <button
+                type="button"
+                onClick={() => switchMode("signin")}
+                className={
+                  "rounded-md px-3 py-1.5 text-sm transition-colors " +
+                  (mode === "signin" ? "bg-panel font-medium shadow-sm" : "text-muted-foreground")
+                }
+              >
+                Sign in
+              </button>
+              <button
+                type="button"
+                onClick={() => switchMode("create")}
+                className={
+                  "rounded-md px-3 py-1.5 text-sm transition-colors " +
+                  (mode === "create" ? "bg-panel font-medium shadow-sm" : "text-muted-foreground")
+                }
+              >
+                Create account
+              </button>
+            </div>
+
+            <h2 className="text-lg font-semibold">
+              {mode === "signin" ? "Sign in" : "Create your account"}
+            </h2>
             <p className="mt-1 text-sm text-muted-foreground">
-              Sign in with the account registered for this deployment.
+              {mode === "signin"
+                ? "Sign in to the platform."
+                : "This deployment holds a single account. Create it once with the address below."}
             </p>
 
             <form onSubmit={submit} className="mt-6 space-y-4">
+              {mode === "create" ? (
+                <div className="space-y-1.5">
+                  <label className="text-sm font-medium text-muted-foreground" htmlFor="full_name">
+                    Full name
+                  </label>
+                  <Input
+                    id="full_name"
+                    autoComplete="name"
+                    value={fullName}
+                    onChange={(event) => setFullName(event.target.value)}
+                    required
+                  />
+                </div>
+              ) : null}
+
               <div className="space-y-1.5">
                 <label className="text-sm font-medium text-muted-foreground" htmlFor="username">
                   Email
                 </label>
-                <Input
-                  id="username"
-                  type="email"
-                  autoComplete="username"
-                  value={username}
-                  onChange={(event) => setUsername(event.target.value)}
-                  required
-                />
+                {mode === "create" && allowedEmail ? (
+                  <Input id="username" type="email" value={allowedEmail} readOnly className="opacity-80" />
+                ) : (
+                  <Input
+                    id="username"
+                    type="email"
+                    autoComplete="username"
+                    value={username}
+                    onChange={(event) => setUsername(event.target.value)}
+                    required
+                  />
+                )}
               </div>
+
               <div className="space-y-1.5">
                 <label className="text-sm font-medium text-muted-foreground" htmlFor="password">
                   Password
@@ -115,9 +218,11 @@ export default function LoginPage() {
                 <Input
                   id="password"
                   type="password"
-                  autoComplete="current-password"
+                  autoComplete={mode === "signin" ? "current-password" : "new-password"}
                   value={password}
                   onChange={(event) => setPassword(event.target.value)}
+                  minLength={mode === "create" ? 8 : undefined}
+                  placeholder={mode === "create" ? "At least 8 characters" : undefined}
                   required
                 />
               </div>
@@ -127,16 +232,35 @@ export default function LoginPage() {
                   {error}
                 </p>
               ) : null}
+              {notice ? (
+                <p className="rounded-md border border-success/30 bg-success/10 px-3 py-2 text-sm text-success">
+                  {notice}
+                </p>
+              ) : null}
 
               <Button type="submit" className="w-full" disabled={submitting}>
-                {submitting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Lock className="h-4 w-4" />}
-                {submitting ? "Signing in…" : "Sign in"}
+                {submitting ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : mode === "signin" ? (
+                  <Lock className="h-4 w-4" />
+                ) : (
+                  <UserPlus className="h-4 w-4" />
+                )}
+                {submitting
+                  ? mode === "signin"
+                    ? "Signing in…"
+                    : "Creating account…"
+                  : mode === "signin"
+                    ? "Sign in"
+                    : "Create account"}
               </Button>
             </form>
 
-            <p className="mt-4 text-center text-xs text-muted-foreground">
-              Need access? Contact your platform administrator.
-            </p>
+            {mode === "create" ? (
+              <p className="mt-4 text-center text-xs text-muted-foreground">
+                Already created? Switch to Sign in.
+              </p>
+            ) : null}
           </div>
         </div>
       </div>

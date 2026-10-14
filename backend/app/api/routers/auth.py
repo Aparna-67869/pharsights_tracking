@@ -3,13 +3,20 @@
 from __future__ import annotations
 
 from datetime import UTC, datetime
+from typing import Annotated
 
-from fastapi import APIRouter, Request
+from fastapi import APIRouter, Depends, Request
 from sqlalchemy import select
 from sqlalchemy.exc import OperationalError
 from sqlalchemy.orm import Session
 
-from app.api.deps import Principal, PrincipalDep, SessionDep, audit
+from app.api.deps import (
+    Principal,
+    PrincipalDep,
+    SessionDep,
+    audit,
+    get_optional_principal,
+)
 from app.api.schemas import (
     ChangePasswordRequest,
     RegisterRequest,
@@ -39,39 +46,53 @@ router = APIRouter(prefix="/auth", tags=["auth"])
     "/register",
     response_model=RegisterResponse,
     status_code=201,
-    summary="Provision an account (administrator only)",
+    summary="Create the account for this deployment",
 )
 def register(
     payload: RegisterRequest,
     session: SessionDep,
     request: Request,
-    principal: PrincipalDep,
+    principal: Annotated[Principal | None, Depends(get_optional_principal)] = None,
 ) -> RegisterResponse:
-    """Provision a platform account.
+    """Create the deployment's account.
 
-    This is a company-internal platform with no public sign-up, so the endpoint
-    requires an authenticated administrator. The new account gets the least
-    privilege ``viewer`` role until an administrator elevates it.
+    This is a single-account platform. ``allowed_login_email`` is the only
+    address the deployment accepts, so the sign-in page can create exactly that
+    account without an administrator; registering any other address is refused.
+    Re-registering an address that already exists conflicts, so the sign-in page
+    never silently overwrites or duplicates the account.
+
+    When the single-account mode is off, this falls back to the internal
+    administrator-only provisioning flow.
     """
-    if settings.restrict_login:
-        raise AuthorizationError("Account creation is disabled on this deployment")
-    if principal.role is not Role.ADMIN:
-        raise AuthorizationError("Only an administrator can create accounts")
-
     email = payload.email.strip().casefold()
-    if settings.block_additional_accounts and email != settings.allowed_login_email.strip().casefold():
-        raise AuthorizationError(
-            f"This deployment accepts only {settings.allowed_login_email} as an account"
-        )
+
+    if settings.block_additional_accounts:
+        # The one authorized address, and nothing else. This check runs before
+        # authentication so the sign-in page can bootstrap the account.
+        if email != settings.allowed_login_email.strip().casefold():
+            raise AuthorizationError(
+                f"This deployment accepts only {settings.allowed_login_email} as an account"
+            )
+    else:
+        # Normal multi-account platform: administrator-only provisioning.
+        if settings.restrict_login:
+            raise AuthorizationError("Account creation is disabled on this deployment")
+        if principal is None or principal.role is not Role.ADMIN:
+            raise AuthorizationError("Only an administrator can create accounts")
+
     existing = session.scalars(select(User).where(User.email == email)).first()
     if existing is not None:
         raise ConflictError("An account with that email already exists")
 
+    # The single authorized account is a full administrator; otherwise a
+    # provisioned account starts at least privilege until an admin elevates it.
+    role = Role.ADMIN.value if settings.block_additional_accounts else Role.VIEWER.value
     user = User(
         email=email,
         full_name=payload.full_name.strip(),
         hashed_password=hash_password(payload.password),
-        role=Role.VIEWER.value,
+        role=role,
         is_active=True,
     )
     session.add(user)
@@ -89,6 +110,20 @@ def register(
     return RegisterResponse(id=user.id, email=user.email, full_name=user.full_name, role=user.role)
 
 
+@router.get("/config", summary="Public sign-in configuration")
+def auth_config() -> dict[str, str | bool | None]:
+    """What the sign-in page needs before anyone is authenticated.
+
+    The deployment accepts a single address; telling the page which one lets it
+    pre-fill account creation instead of guessing. No secrets are exposed.
+    """
+    single = settings.restrict_login or settings.block_additional_accounts
+    return {
+        "single_account": single,
+        "allowed_login_email": settings.allowed_login_email if single else None,
+    }
+
+
 @router.post("/token", response_model=TokenResponse, summary="Obtain a JWT access token")
 def login(payload: TokenRequest, session: SessionDep, request: Request) -> TokenResponse:
     """Authenticate with email + password and receive a scoped access token."""
@@ -101,7 +136,7 @@ def login(payload: TokenRequest, session: SessionDep, request: Request) -> Token
         session.rollback()
         raise ServiceUnavailableError("Database is busy, please retry") from None
 
-    # Locked-down deployment: only the single authorized account may sign in.
+    # Single-account deployment: only the one authorized address may sign in.
     if settings.restrict_login and payload.username != settings.allowed_login_email.strip().casefold():
         audit_service.record_detached(
             actor=payload.username,

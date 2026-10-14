@@ -4,6 +4,9 @@ The platform is a one-account deployment: only ``ALLOWED_LOGIN_EMAIL`` may sign
 in. This reconciles an existing database that was seeded (or edited) before that
 rule existed, so no stray account can authenticate and no foreign key dangles.
 
+It never creates an account — the account is claimed on the sign-in page — so it
+is safe to run against a fresh database.
+
 Run with:  python -m scripts.lockdown_accounts
 """
 
@@ -13,7 +16,7 @@ from sqlalchemy import delete, select
 
 from app.core.config import settings
 from app.core.logging import get_logger
-from app.core.security import Role, hash_password
+from app.core.security import Role
 from app.db.models import (
     AlertSubscription,
     CopilotConversation,
@@ -33,19 +36,7 @@ def main() -> None:
         users = list(session.scalars(select(User)))
         keep = next((u for u in users if u.email == allowed), None)
 
-        if keep is None:
-            keep = User(
-                email=allowed,
-                full_name="Pharsight Patent",
-                hashed_password=hash_password("AdminPass!234"),
-                role=Role.ADMIN.value,
-                is_active=True,
-                preferences={},
-            )
-            session.add(keep)
-            session.flush()
-            log.info("created authorized account %s", allowed)
-        else:
+        if keep is not None:
             keep.role = Role.ADMIN.value
             keep.is_active = True
             log.info("kept authorized account %s", allowed)
@@ -57,23 +48,26 @@ def main() -> None:
             session.execute(
                 SavedView.__table__.update()
                 .where(SavedView.owner_id.in_(removed_ids))
-                .values(owner_id=keep.id)
+                .values(owner_id=keep.id if keep else None)
             )
             session.execute(
                 AlertSubscription.__table__.update()
                 .where(AlertSubscription.user_id.in_(removed_ids))
-                .values(user_id=keep.id)
+                .values(user_id=keep.id if keep else None)
             )
             session.execute(
                 CopilotConversation.__table__.update()
                 .where(CopilotConversation.user_id.in_(removed_ids))
-                .values(user_id=keep.id)
+                .values(user_id=keep.id if keep else None)
             )
             session.execute(delete(User).where(User.id.in_(removed_ids)))
             for user in removed:
                 log.info("removed account %s (%s)", user.email, user.role)
 
-        print(f"authorized account: {keep.email} ({keep.role})")
+        if keep is None:
+            print(f"no account yet — create {allowed} on the sign-in page")
+        else:
+            print(f"authorized account: {keep.email} ({keep.role})")
         print(f"removed {len(removed)} other account(s)")
 
 

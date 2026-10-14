@@ -148,6 +148,14 @@ export const api = {
       can_create_accounts: boolean;
       allowed_login_email: string | null;
     }>("/auth/me"),
+  authConfig: () =>
+    request<{ single_account: boolean; allowed_login_email: string | null }>("/auth/config"),
+  async register(body: { full_name: string; email: string; password: string }) {
+    return request<{ id: string; email: string; full_name: string; role: string }>(
+      "/auth/register",
+      { method: "POST", body: JSON.stringify(body) },
+    );
+  },
 
   // ---- Dashboard ----
   kpis: async (): Promise<{ kpis: Kpis; alerts: AlertSummary }> => {
@@ -323,26 +331,7 @@ export const api = {
   deleteSubscription: (id: string) =>
     request<{ deleted: boolean }>(`/subscriptions/${id}`, { method: "DELETE" }),
 
-  // ---- Administration: user management (admin only) ----
-  users: () =>
-    request<
-      Array<{
-        id: string;
-        email: string;
-        full_name: string;
-        role: string;
-        is_active: boolean;
-        last_login_at: string | null;
-        created_at: string;
-      }>
-    >("/auth/users"),
-  updateUser: (id: string, body: { role?: string; is_active?: boolean; full_name?: string }) =>
-    request<{ id: string }>(`/auth/users/${id}`, { method: "PATCH", body: JSON.stringify(body) }),
-  provisionUser: (body: { full_name: string; email: string; password: string }) =>
-    request<{ id: string; email: string; full_name: string; role: string }>("/auth/register", {
-      method: "POST",
-      body: JSON.stringify(body),
-    }),
+  // ---- Auth: password ----
   changePassword: (body: { current_password: string; new_password: string }) =>
     request<{ status: string }>("/auth/password", { method: "POST", body: JSON.stringify(body) }),
 
