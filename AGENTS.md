@@ -176,6 +176,25 @@ The SOP mandates that each module mirrors what the analyst sees on the source pa
 - To re-verify FTF fidelity: parse the live PDF (`parsers.ftf.parse_ftf_pdf`)
   and compare against `ftf_records`; counts and drug|NDA keys must match.
 
+## Row counts and source order
+
+- Natural keys must be unique per real source row. Two rows were silently
+  dropped by over-narrow keys and the fix is the contract:
+  - PDE key is `moiety|sponsor|issue_date` (a moiety recurs for one sponsor on
+    different dates, e.g. Divalproex/Abbott 2002 and 2006).
+  - PTE application key includes the filing date, so the same application
+    number listed twice stays two rows.
+- `SourceDocument.record_count` is what the module serves (distinct persisted
+  keys, `RecordDelta.stored`), NOT the raw parsed row count. A source row can be
+  rejected by validation or collapse as an exact duplicate; `source_record_count`
+  holds the raw count so the provenance bar can show `N (of M source rows)`.
+- `source_ordinal` preserves the workbook/list order. Routers default to
+  `order_by(source_ordinal, <date>)` so the table matches the source file; the
+  ordinal is provenance, not a fact, and is never rendered as one.
+- Excel float artifacts (`8088378.0`) are stripped via
+  `core.text.canonical_identifier`; genuinely punctuated ids (`7.420.051`,
+  `RE27757`) pass through untouched.
+
 ## Automatic monitoring (scheduler)
 
 - `services/scheduler.py` runs the real `run_pipeline` on a cadence in a daemon
