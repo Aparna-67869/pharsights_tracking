@@ -19,7 +19,7 @@ Score < threshold?  ── yes ─▶ recorded, not alerted
 Alert created (dedupe_key prevents duplicates)
         │
         ▼
-Fan out to channels (dashboard, email, Teams, Slack)
+Fan out to channels (dashboard, email, Teams)
         │
         ▼
 notification_logs records each attempt
@@ -74,7 +74,6 @@ one does not block the others, and every attempt is logged.
 | Dashboard | Stored `Alert` row, polled by the UI | always on |
 | Email | SMTP | `SMTP_*` settings; skipped if unset |
 | Microsoft Teams | Incoming webhook | `TEAMS_WEBHOOK_URL` |
-| Slack | Incoming webhook | `SLACK_WEBHOOK_URL` |
 
 A channel that is not configured reports `skipped`, not `failed`, so the
 notification log distinguishes "we tried and it broke" from "we did not try".

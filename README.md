@@ -47,7 +47,7 @@ DetectedChange rows (full audit history, versioned)
 AI impact engine → Insight (what / why / who / opportunity / risk / action / priority)
       │
       ▼
-Priority-scored Alert → dashboard, email, Teams, Slack
+Priority-scored Alert → dashboard, email, Teams
 ```
 
 Every step is idempotent. Re-running a collection over an unchanged source is a

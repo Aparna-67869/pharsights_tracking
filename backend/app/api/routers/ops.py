@@ -161,7 +161,7 @@ def opportunities(session: SessionDep, limit: int = Query(25, ge=1, le=200)) -> 
 def delivery_channels(principal: PrincipalDep) -> dict:
     """Report which notification channels are actually wired up server-side.
 
-    The dashboard channel is always available; email, Teams and Slack are
+    The dashboard channel is always available; email and Teams are
     enabled per deployment via SMTP / webhook settings. The authenticated
     identity is the email target, so the UI can show exactly where mail goes.
     """

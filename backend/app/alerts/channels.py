@@ -1,4 +1,4 @@
-"""Alert channels: dashboard, email, Microsoft Teams, Slack.
+"""Alert channels: dashboard, email, Microsoft Teams.
 
 Every channel is optional. When it is not configured the send is recorded as
 ``skipped`` rather than failing, so the alert pipeline never breaks because a
@@ -7,7 +7,6 @@ webhook is missing. The dashboard channel is always available.
 
 from __future__ import annotations
 
-import json
 from dataclasses import dataclass
 from email.message import EmailMessage
 from typing import Any, Protocol
@@ -174,52 +173,5 @@ class TeamsChannel:
             return DeliveryResult(channel=self.name, status="failed", error=str(exc)[:500])
 
 
-class SlackChannel:
-    name = "slack"
-
-    def configured(self) -> bool:
-        return bool(settings.slack_webhook_url)
-
-    def send(self, alert: dict[str, Any]) -> DeliveryResult:
-        if not self.configured():
-            return DeliveryResult(channel=self.name, status="skipped", error="webhook not configured")
-        payload = {
-            "text": _format_text(alert),
-            "blocks": [
-                {
-                    "type": "header",
-                    "text": {
-                        "type": "plain_text",
-                        "text": f"{_priority_emoji(alert.get('priority_label', ''))} "
-                        f"{alert.get('title', '')}"[:150],
-                    },
-                },
-                {
-                    "type": "section",
-                    "fields": [
-                        {"type": "mrkdwn", "text": f"*Priority:* {alert.get('priority_label')} "
-                         f"({alert.get('priority_score')}/100)"},
-                        {"type": "mrkdwn", "text": f"*Module:* {str(alert.get('module', '')).upper()}"},
-                        {"type": "mrkdwn", "text": f"*Drug:* {clean_text(alert.get('drug_name')) or '—'}"},
-                        {"type": "mrkdwn", "text": f"*Sponsor:* {clean_text(alert.get('sponsor_name')) or '—'}"},
-                    ],
-                },
-                {"type": "section", "text": {"type": "mrkdwn", "text": alert.get("message", "")[:2900]}},
-            ],
-        }
-        try:
-            with httpx.Client(timeout=30) as client:
-                response = client.post(
-                    settings.slack_webhook_url,
-                    content=json.dumps(payload),
-                    headers={"Content-Type": "application/json"},
-                )
-                response.raise_for_status()
-            return DeliveryResult(channel=self.name, status="sent", recipient="slack-webhook")
-        except Exception as exc:
-            log.warning("slack delivery failed: %s", exc)
-            return DeliveryResult(channel=self.name, status="failed", error=str(exc)[:500])
-
-
 def all_channels() -> list[Channel]:
-    return [DashboardChannel(), EmailChannel(), TeamsChannel(), SlackChannel()]
+    return [DashboardChannel(), EmailChannel(), TeamsChannel()]

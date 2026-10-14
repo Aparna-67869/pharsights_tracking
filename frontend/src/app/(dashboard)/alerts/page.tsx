@@ -19,7 +19,6 @@ import type { Alert } from "@/types/api";
 const CHANNEL_ICONS: Record<string, React.ReactNode> = {
   email: <Mail className="h-3 w-3" />,
   teams: <MessageSquare className="h-3 w-3" />,
-  slack: <MessageSquare className="h-3 w-3" />,
   dashboard: <BellRing className="h-3 w-3" />,
 };
 

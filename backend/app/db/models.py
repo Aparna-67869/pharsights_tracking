@@ -637,7 +637,7 @@ class NotificationLog(Base, UUIDPrimaryKey, TimestampMixin):
     __tablename__ = "notification_logs"
 
     alert_id: Mapped[str] = mapped_column(String(36), ForeignKey("alerts.id"), index=True)
-    channel: Mapped[str] = mapped_column(String(32), index=True)  # email|teams|slack|dashboard
+    channel: Mapped[str] = mapped_column(String(32), index=True)  # email|teams|dashboard
     recipient: Mapped[str | None] = mapped_column(String(512), nullable=True)
     status: Mapped[str] = mapped_column(String(16), default="pending", index=True)
     attempts: Mapped[int] = mapped_column(Integer, default=0)

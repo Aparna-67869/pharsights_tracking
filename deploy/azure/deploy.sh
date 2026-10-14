@@ -60,7 +60,6 @@ set_secret kafka-bootstrap-servers "${KAFKA_BOOTSTRAP_SERVERS:-${BASE_NAME}-sb.s
 set_secret azure-storage-connection-string "$(az storage account show-connection-string --name "$storage_account" --resource-group "$RESOURCE_GROUP" --query connectionString --output tsv)"
 set_secret azure-openai-endpoint "${AZURE_OPENAI_ENDPOINT:-https://${BASE_NAME}-aoai.openai.azure.com/}"
 set_secret azure-openai-api-key "${AZURE_OPENAI_API_KEY:-}"
-set_secret slack-webhook-url "${SLACK_WEBHOOK_URL:-}"
 set_secret teams-webhook-url "${TEAMS_WEBHOOK_URL:-}"
 
 log "Build and push images"

@@ -49,7 +49,6 @@ run_api() {
   export BLOCK_ADDITIONAL_ACCOUNTS="${BLOCK_ADDITIONAL_ACCOUNTS:-true}"
   export SEED_ADMIN_PASSWORD="${SEED_ADMIN_PASSWORD:-}"
   export TEAMS_WEBHOOK_URL="${TEAMS_WEBHOOK_URL:-}"
-  export SLACK_WEBHOOK_URL="${SLACK_WEBHOOK_URL:-}"
   export SCHEDULER_INTERVAL_MINUTES="${SCHEDULER_INTERVAL_MINUTES:-360}"
   # Prefer the project venv (created with `uv venv .venv`); fall back to a
   # system python that has the requirements installed.

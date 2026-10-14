@@ -261,7 +261,7 @@ The SOP mandates that each module mirrors what the analyst sees on the source pa
 - Alert email uses `email_service.deliver`, which picks implicit TLS (465) vs
   STARTTLS (587) by port so any relay works. `serve.sh` passes `SMTP_*`,
   `ALERT_EMAIL_RECIPIENTS`, `ALLOWED_LOGIN_EMAIL`, `BLOCK_ADDITIONAL_ACCOUNTS`,
-  `TEAMS_WEBHOOK_URL`, `SLACK_WEBHOOK_URL` and `SCHEDULER_INTERVAL_MINUTES`
+  `TEAMS_WEBHOOK_URL` and `SCHEDULER_INTERVAL_MINUTES`
   through from the environment.
 - After each sweep the pipeline emails a **change digest** (`email_service.
   send_change_digest`, called from `services/pipeline.py`) to

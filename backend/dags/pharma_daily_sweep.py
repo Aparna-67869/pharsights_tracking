@@ -39,7 +39,7 @@ def collect_and_detect(**context) -> dict:
 def dispatch_priority_alerts(**context) -> int:
     """Send only the alerts that clear the priority threshold.
 
-    Kept separate from collection so a transient SMTP/Teams/Slack outage retries
+    Kept separate from collection so a transient SMTP/Teams outage retries
     the notification without re-collecting every source.
     """
     from app.alerts.engine import dispatch_alerts

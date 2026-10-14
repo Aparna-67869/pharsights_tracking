@@ -101,13 +101,4 @@ def _deliver(channel: str, alert: dict[str, Any], context: RecipientContext) -> 
         )
         return DeliveryOutcome(channel="teams", status=result.status, recipient=result.target, error=result.error)
 
-    if channel == "slack":
-        from app.alerts.channels import SlackChannel
-
-        slack = SlackChannel()
-        if not slack.configured():
-            return DeliveryOutcome(channel="slack", status="skipped", error="not configured")
-        result = slack.send(alert)
-        return DeliveryOutcome(channel="slack", status=result.status, recipient=result.recipient, error=result.error)
-
     return DeliveryOutcome(channel=channel, status="skipped", error="unknown channel")

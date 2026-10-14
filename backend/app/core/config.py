@@ -113,7 +113,6 @@ class Settings(BaseSettings):
         default_factory=lambda: ["pharsightspatent@gmail.com"]
     )
     teams_webhook_url: str | None = None
-    slack_webhook_url: str | None = None
 
     @field_validator("alert_email_recipients", mode="before")
     @classmethod
