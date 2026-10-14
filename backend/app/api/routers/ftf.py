@@ -132,6 +132,7 @@ def source_info(session: SessionDep) -> dict:
         "filename": doc.filename,
         "version": doc.version,
         "record_count": doc.record_count,
+        "source_record_count": doc.source_record_count,
         "publication_date": doc.publication_date.isoformat() if doc.publication_date else None,
         "publication_label": doc.publication_label,
         "fetched_at": doc.fetched_at.isoformat() if doc.fetched_at else None,
