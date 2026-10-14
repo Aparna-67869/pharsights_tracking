@@ -44,9 +44,15 @@ run_api() {
 
 run_web() {
   cd "$ROOT/frontend" || exit 1
-  # Baked into the client bundle at build time; keep it pointed at the public
-  # API origin so the browser never falls back to localhost:8000.
+  # NEXT_PUBLIC_API_BASE_URL is baked into the client bundle by `npm run build`;
+  # exporting it here only affects a build run from this script, not an earlier
+  # one. Warn if the existing bundle was built without it, so the browser does
+  # not silently fall back to localhost:8000.
   export NEXT_PUBLIC_API_BASE_URL="${NEXT_PUBLIC_API_BASE_URL:-$BE_ORIGIN}"
+  if grep -rqs "http://localhost:8000" "$ROOT/frontend/.next/static/chunks" 2>/dev/null; then
+    log "WARNING: frontend bundle was built with the localhost:8000 API fallback."
+    log "Rebuild: cd frontend && NEXT_PUBLIC_API_BASE_URL=$BE_ORIGIN npm run build"
+  fi
   # This build uses output: standalone, so serve it with the standalone server
   # (next start does not support standalone and exits).
   local dir="$ROOT/frontend/.next/standalone"
