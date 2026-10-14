@@ -8,6 +8,8 @@ export interface SessionUser {
   username: string;
   role: string;
   permissions: string[];
+  can_create_accounts: boolean;
+  allowed_login_email: string | null;
 }
 
 interface AuthContextValue {

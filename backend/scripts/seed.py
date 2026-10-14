@@ -15,12 +15,7 @@ from app.db.session import create_all, session_scope
 log = get_logger(__name__)
 
 DEFAULT_USERS = [
-    ("admin@pharma-intel.local", "Platform Administrator", "AdminPass!234", Role.ADMIN),
-    ("analyst@pharma-intel.local", "Regulatory Analyst", "AnalystPass!234", Role.ANALYST),
-    ("ra@pharma-intel.local", "Regulatory Affairs Lead", "RAPass!234", Role.REGULATORY_AFFAIRS),
-    ("ip@pharma-intel.local", "IP Counsel", "IPPass!234", Role.IP_COUNSEL),
-    ("exec@pharma-intel.local", "Executive", "ExecPass!234", Role.EXECUTIVE),
-    ("viewer@pharma-intel.local", "Read-only Viewer", "ViewerPass!234", Role.VIEWER),
+    ("pharsightspatent@gmail.com", "Pharsight Patent", "AdminPass!234", Role.ADMIN),
 ]
 
 DEFAULT_VIEWS = [

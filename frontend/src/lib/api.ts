@@ -140,7 +140,14 @@ export const api = {
     setToken(data.access_token);
     return data;
   },
-  me: () => request<{ username: string; role: string; permissions: string[] }>("/auth/me"),
+  me: () =>
+    request<{
+      username: string;
+      role: string;
+      permissions: string[];
+      can_create_accounts: boolean;
+      allowed_login_email: string | null;
+    }>("/auth/me"),
 
   // ---- Dashboard ----
   kpis: async (): Promise<{ kpis: Kpis; alerts: AlertSummary }> => {
@@ -336,6 +343,8 @@ export const api = {
       method: "POST",
       body: JSON.stringify(body),
     }),
+  changePassword: (body: { current_password: string; new_password: string }) =>
+    request<{ status: string }>("/auth/password", { method: "POST", body: JSON.stringify(body) }),
 
   // ---- Saved views ----
   savedViews: () => request<SavedView[]>("/dashboard/views"),

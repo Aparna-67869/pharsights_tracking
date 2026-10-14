@@ -11,6 +11,7 @@ from sqlalchemy.orm import Session
 
 from app.api.deps import Principal, PrincipalDep, SessionDep, audit
 from app.api.schemas import (
+    ChangePasswordRequest,
     RegisterRequest,
     RegisterResponse,
     TokenRequest,
@@ -58,6 +59,10 @@ def register(
         raise AuthorizationError("Only an administrator can create accounts")
 
     email = payload.email.strip().casefold()
+    if settings.block_additional_accounts and email != settings.allowed_login_email.strip().casefold():
+        raise AuthorizationError(
+            f"This deployment accepts only {settings.allowed_login_email} as an account"
+        )
     existing = session.scalars(select(User).where(User.email == email)).first()
     if existing is not None:
         raise ConflictError("An account with that email already exists")
@@ -155,7 +160,35 @@ def me(principal: PrincipalDep) -> UserProfile:
         username=principal.username,
         role=principal.role.value,
         permissions=principal.scopes,
+        can_create_accounts=not settings.block_additional_accounts,
+        allowed_login_email=(
+            settings.allowed_login_email if settings.block_additional_accounts else None
+        ),
     )
+
+
+@router.post("/password", summary="Change the signed-in account's password")
+def change_password(
+    payload: ChangePasswordRequest,
+    session: SessionDep,
+    principal: PrincipalDep,
+    request: Request,
+) -> dict:
+    """Change your own password after confirming the current one."""
+    user = session.scalars(select(User).where(User.email == principal.username)).first()
+    if user is None or not verify_password(payload.current_password, user.hashed_password):
+        raise AuthenticationError("Current password is incorrect")
+    user.hashed_password = hash_password(payload.new_password)
+    audit(
+        session,
+        actor=principal.username,
+        action="change_password",
+        resource_type="user",
+        resource_id=user.id,
+        request=request,
+    )
+    session.commit()
+    return {"status": "ok"}
 
 
 # ---- Administration: user management (administrator only) ------------------
@@ -186,6 +219,14 @@ def update_user(
         from app.core.errors import NotFoundError
 
         raise NotFoundError("User not found")
+    if (
+        settings.block_additional_accounts
+        and user.email == settings.allowed_login_email.strip().casefold()
+        and payload.is_active is False
+    ):
+        raise AuthorizationError(
+            f"{settings.allowed_login_email} is the only account on this deployment and cannot be disabled"
+        )
     if payload.role is not None:
         try:
             Role(payload.role)

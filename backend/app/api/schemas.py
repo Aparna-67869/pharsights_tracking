@@ -81,6 +81,10 @@ class UserProfile(BaseModel):
     username: str
     role: str
     permissions: list[str]
+    # Whether this deployment permits additional accounts beyond the single
+    # allowed address, so the UI can hide the provisioning form.
+    can_create_accounts: bool = True
+    allowed_login_email: str | None = None
 
 
 class UserOut(BaseModel):
@@ -101,6 +105,13 @@ class UserUpdate(BaseModel):
     role: str | None = None
     is_active: bool | None = None
     full_name: str | None = None
+
+
+class ChangePasswordRequest(BaseModel):
+    """Self-service password change for the signed-in account."""
+
+    current_password: str = Field(min_length=1, max_length=128)
+    new_password: str = Field(min_length=8, max_length=128)
 
 
 # ---- Sources & pipeline ---------------------------------------------------

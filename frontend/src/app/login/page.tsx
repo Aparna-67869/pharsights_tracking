@@ -91,8 +91,7 @@ export default function LoginPage() {
             </div>
             <h2 className="text-lg font-semibold">Sign in</h2>
             <p className="mt-1 text-sm text-muted-foreground">
-              Use your company credentials to access the command center. Accounts are provisioned by an
-              administrator.
+              Sign in with the account registered for this deployment.
             </p>
 
             <form onSubmit={submit} className="mt-6 space-y-4">

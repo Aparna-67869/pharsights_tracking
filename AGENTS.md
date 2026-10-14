@@ -90,10 +90,17 @@ The SOP mandates that each module mirrors what the analyst sees on the source pa
   `@pharma-intel.local` domain (which strict validators reject) works.
 - **Single-account lock-down (default on).** `RESTRICT_LOGIN=true` (env, default
   true) restricts authentication to `ALLOWED_LOGIN_EMAIL` (default
-  `admin@pharma-intel.local`) and closes account creation entirely — even to
+  `pharsightspatent@gmail.com`) and closes account creation entirely — even to
   administrators. Any other email is refused with 401; register returns 403.
   Non-authorized attempts are audited as `login_blocked`. Set
   `RESTRICT_LOGIN=false` to restore the normal multi-role accounts.
+- **One account only (default on).** `BLOCK_ADDITIONAL_ACCOUNTS=true` additionally
+  forbids any account whose email is not `ALLOWED_LOGIN_EMAIL`, and refuses to
+  deactivate that account, so the platform cannot drift off the single address.
+  `/auth/me` reports `can_create_accounts`/`allowed_login_email` and the admin UI
+  hides the provisioning form when it is false. Reconcile an existing database
+  with `python -m scripts.lockdown_accounts` (keeps the authorized account,
+  reassigns saved views/subscriptions/conversations, deletes the rest).
 
 ## Enterprise shell & design system
 
@@ -251,8 +258,18 @@ The SOP mandates that each module mirrors what the analyst sees on the source pa
   serialises it against the API-triggered run path.
 - Alert email uses `email_service.deliver`, which picks implicit TLS (465) vs
   STARTTLS (587) by port so any relay works. `serve.sh` passes `SMTP_*`,
+  `ALERT_EMAIL_RECIPIENTS`, `ALLOWED_LOGIN_EMAIL`, `BLOCK_ADDITIONAL_ACCOUNTS`,
   `TEAMS_WEBHOOK_URL`, `SLACK_WEBHOOK_URL` and `SCHEDULER_INTERVAL_MINUTES`
   through from the environment.
+- After each sweep the pipeline emails a **change digest** (`email_service.
+  send_change_digest`, called from `services/pipeline.py`) to
+  `ALERT_EMAIL_RECIPIENTS` (default `pharsightspatent@gmail.com`). It lists every
+  non-baseline detected change with its field-level diff — not just the alerts
+  above `ALERT_MIN_PRIORITY_TO_NOTIFY` — so the mailbox is a complete record.
+  Delivery needs `SMTP_HOST` (+ `SMTP_USERNAME`/`SMTP_PASSWORD`); for Gmail use
+  `SMTP_HOST=smtp.gmail.com`, `SMTP_PORT=465`, `SMTP_USE_TLS=false` and an app
+  password as `SMTP_PASSWORD`. Without SMTP the digest is recorded `skipped` and
+  the sweep still completes.
 
 ## Vercel deployment
 

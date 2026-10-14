@@ -106,7 +106,12 @@ class Settings(BaseSettings):
     # ``smtp_use_tls`` can force STARTTLS on/off for anything unusual.
     smtp_use_ssl: bool | None = None  # None = infer from port
     smtp_use_tls: bool = True
-    alert_email_recipients: Annotated[list[str], NoDecode] = Field(default_factory=list)
+    # The address that receives every detected change and alert. Deployments
+    # override it with a comma-separated ALERT_EMAIL_RECIPIENTS list; the
+    # platform default is the single monitored mailbox.
+    alert_email_recipients: Annotated[list[str], NoDecode] = Field(
+        default_factory=lambda: ["pharsightspatent@gmail.com"]
+    )
     teams_webhook_url: str | None = None
     slack_webhook_url: str | None = None
 
@@ -139,7 +144,13 @@ class Settings(BaseSettings):
     # created (the register endpoint is closed regardless of role). Set
     # RESTRICT_LOGIN=false to restore normal multi-account access.
     restrict_login: bool = True
-    allowed_login_email: str = "admin@pharma-intel.local"
+    allowed_login_email: str = "pharsightspatent@gmail.com"
+
+    # When true, the single allowed address is the only account the platform
+    # will hold: administrators cannot provision additional accounts and an
+    # existing account cannot be moved onto another address. Set
+    # BLOCK_ADDITIONAL_ACCOUNTS=false to allow the normal admin-only flow.
+    block_additional_accounts: bool = True
 
     # ---- Automatic monitoring ----
     # The platform monitors the sources on its own cadence; users never run a

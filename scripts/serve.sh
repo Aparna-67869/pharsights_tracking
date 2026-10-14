@@ -31,7 +31,11 @@ run_api() {
   export SMTP_PASSWORD="${SMTP_PASSWORD:-}"
   export SMTP_FROM="${SMTP_FROM:-pharma-intel@example.com}"
   export SMTP_USE_TLS="${SMTP_USE_TLS:-true}"
-  export ALERT_EMAIL_RECIPIENTS="${ALERT_EMAIL_RECIPIENTS:-}"
+  # Every detected change and alert is emailed here. Point SMTP_* at a relay
+  # that can send as this address (for Gmail: smtp.gmail.com + an app password).
+  export ALERT_EMAIL_RECIPIENTS="${ALERT_EMAIL_RECIPIENTS:-pharsightspatent@gmail.com}"
+  export ALLOWED_LOGIN_EMAIL="${ALLOWED_LOGIN_EMAIL:-pharsightspatent@gmail.com}"
+  export BLOCK_ADDITIONAL_ACCOUNTS="${BLOCK_ADDITIONAL_ACCOUNTS:-true}"
   export TEAMS_WEBHOOK_URL="${TEAMS_WEBHOOK_URL:-}"
   export SLACK_WEBHOOK_URL="${SLACK_WEBHOOK_URL:-}"
   export SCHEDULER_INTERVAL_MINUTES="${SCHEDULER_INTERVAL_MINUTES:-360}"

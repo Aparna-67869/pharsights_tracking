@@ -18,6 +18,7 @@ from sqlalchemy.orm import Session
 from app.collectors.base import ensure_source_definition
 from app.collectors.modules import build_collector
 from app.collectors.registry import ALL_SOURCES
+from app.core.config import settings
 from app.core.events import Topics, publish_event
 from app.core.errors import ConflictError
 from app.core.logging import get_logger
@@ -193,6 +194,31 @@ def run_source(
         collector.close()
 
 
+def _email_change_digest(session: Session, run_id: str) -> None:
+    """Email this run's detected changes to the configured recipients.
+
+    Baseline changes (the first snapshot of a source) are excluded: they are
+    onboarding data, not regulatory events, and would flood the mailbox.
+    """
+    from app.services import email_service
+
+    if not settings.alert_email_recipients:
+        return
+    changes = list(
+        session.scalars(
+            select(DetectedChange)
+            .where(
+                DetectedChange.pipeline_run_id == run_id,
+                DetectedChange.is_baseline.is_(False),
+            )
+            .order_by(DetectedChange.significance.desc())
+            .limit(500)
+        )
+    )
+    result = email_service.send_change_digest(changes, run_id=run_id)
+    log.info("change digest email: %s (%d change(s))", result.status, len(changes))
+
+
 def run_pipeline(
     *,
     modules: list[str] | None = None,
@@ -313,6 +339,12 @@ def _run_pipeline_locked(
             alerts = dispatch_alerts(session, insights=insights)
             result.alerts_created = len(alerts)
             session.commit()
+            # Email the full change list (not just the alerts above the priority
+            # floor) so the monitored mailbox holds every detected delta.
+            try:
+                _email_change_digest(session, run_id)
+            except Exception as exc:  # pragma: no cover - never break the pipeline
+                log.warning("change digest email failed for run %s: %s", run_id, exc)
 
         result.status = "completed" if not result.errors else "completed_with_errors"
         result.duration_ms = int((time.time() - started) * 1000)

@@ -98,12 +98,14 @@ function AdminTabs({ isAdmin }: { isAdmin: boolean }) {
 
 /** Accounts: list, create, change role, activate/deactivate (admins only). */
 function AccountsPanel() {
+  const { user } = useAuth();
   const queryClient = useQueryClient();
   const users = useQuery({ queryKey: ["users"], queryFn: () => api.users() });
   const [fullName, setFullName] = React.useState("");
   const [email, setEmail] = React.useState("");
   const [password, setPassword] = React.useState("");
   const [error, setError] = React.useState<string | null>(null);
+  const canCreate = user?.can_create_accounts ?? true;
 
   const invalidate = () => {
     void queryClient.invalidateQueries({ queryKey: ["users"] });
@@ -132,43 +134,59 @@ function AccountsPanel() {
   return (
     <div className="space-y-4">
       <Panel
-        title="Add account"
-        subtitle="Provisioned accounts can sign in immediately"
+        title={canCreate ? "Add account" : "Single-account deployment"}
+        subtitle={
+          canCreate
+            ? "Provisioned accounts can sign in immediately"
+            : "This deployment accepts one account only"
+        }
         icon={<UserPlus className="h-3.5 w-3.5" />}
       >
-        <div className="grid gap-3 sm:grid-cols-2">
-          <div className="space-y-1.5">
-            <label className="text-[11px] text-muted-foreground">Full name</label>
-            <Input value={fullName} onChange={(e) => setFullName(e.target.value)} placeholder="Jane Analyst" className="h-9" />
-          </div>
-          <div className="space-y-1.5">
-            <label className="text-[11px] text-muted-foreground">Email</label>
-            <Input value={email} onChange={(e) => setEmail(e.target.value)} placeholder="jane@company.com" className="h-9" />
-          </div>
-          <div className="space-y-1.5">
-            <label className="text-[11px] text-muted-foreground">Temporary password</label>
-            <Input
-              type="password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              placeholder="At least 8 characters"
-              className="h-9"
-            />
-          </div>
-          <div className="flex items-end">
-            <Button
-              className="h-9 w-full"
-              disabled={create.isPending || !fullName || !email || password.length < 8}
-              onClick={() => create.mutate()}
-            >
-              {create.isPending ? "Creating…" : "Create account"}
-            </Button>
-          </div>
-        </div>
-        {error ? <p className="mt-2 text-[11px] text-destructive">{error}</p> : null}
-        <p className="mt-2 text-[10px] text-muted-foreground">
-          New accounts start with the viewer role. Promote them in the table below.
-        </p>
+        {canCreate ? (
+          <>
+            <div className="grid gap-3 sm:grid-cols-2">
+              <div className="space-y-1.5">
+                <label className="text-[11px] text-muted-foreground">Full name</label>
+                <Input value={fullName} onChange={(e) => setFullName(e.target.value)} placeholder="Jane Analyst" className="h-9" />
+              </div>
+              <div className="space-y-1.5">
+                <label className="text-[11px] text-muted-foreground">Email</label>
+                <Input value={email} onChange={(e) => setEmail(e.target.value)} placeholder="jane@company.com" className="h-9" />
+              </div>
+              <div className="space-y-1.5">
+                <label className="text-[11px] text-muted-foreground">Temporary password</label>
+                <Input
+                  type="password"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  placeholder="At least 8 characters"
+                  className="h-9"
+                />
+              </div>
+              <div className="flex items-end">
+                <Button
+                  className="h-9 w-full"
+                  disabled={create.isPending || !fullName || !email || password.length < 8}
+                  onClick={() => create.mutate()}
+                >
+                  {create.isPending ? "Creating…" : "Create account"}
+                </Button>
+              </div>
+            </div>
+            {error ? <p className="mt-2 text-[11px] text-destructive">{error}</p> : null}
+            <p className="mt-2 text-[10px] text-muted-foreground">
+              New accounts start with the viewer role. Promote them in the table below.
+            </p>
+          </>
+        ) : (
+          <p className="text-[11px] text-muted-foreground">
+            Only{" "}
+            <span className="font-medium text-foreground">{user?.allowed_login_email}</span>{" "}
+            may sign in to this platform. Creating further accounts is disabled, and that account
+            cannot be deactivated. Set <span className="font-mono">BLOCK_ADDITIONAL_ACCOUNTS=false</span>{" "}
+            on the API to re-enable multi-account provisioning.
+          </p>
+        )}
       </Panel>
 
       <Panel title="Platform accounts" subtitle="Role and access control" bodyClassName="p-0" icon={<Users className="h-3.5 w-3.5" />}>
@@ -230,7 +248,67 @@ function AccountsPanel() {
           </table>
         </div>
       </Panel>
+
+      <ChangePasswordPanel />
     </div>
+  );
+}
+
+/** Self-service password change for the signed-in account. */
+function ChangePasswordPanel() {
+  const [current, setCurrent] = React.useState("");
+  const [next, setNext] = React.useState("");
+  const [confirm, setConfirm] = React.useState("");
+  const [message, setMessage] = React.useState<string | null>(null);
+  const [error, setError] = React.useState<string | null>(null);
+
+  const change = useMutation({
+    mutationFn: () => api.changePassword({ current_password: current, new_password: next }),
+    onSuccess: () => {
+      setCurrent("");
+      setNext("");
+      setConfirm("");
+      setError(null);
+      setMessage("Password updated.");
+    },
+    onError: (err: Error) => {
+      setMessage(null);
+      setError(err instanceof ApiError ? err.message : "Could not change the password.");
+    },
+  });
+
+  const mismatch = confirm.length > 0 && next !== confirm;
+  const canSubmit = current.length > 0 && next.length >= 8 && next === confirm && !change.isPending;
+
+  return (
+    <Panel
+      title="Change password"
+      subtitle="Rotate the password for the signed-in account"
+      icon={<ShieldCheck className="h-3.5 w-3.5" />}
+    >
+      <div className="grid gap-3 sm:grid-cols-3">
+        <div className="space-y-1.5">
+          <label className="text-[11px] text-muted-foreground">Current password</label>
+          <Input type="password" value={current} onChange={(e) => setCurrent(e.target.value)} className="h-9" />
+        </div>
+        <div className="space-y-1.5">
+          <label className="text-[11px] text-muted-foreground">New password</label>
+          <Input type="password" value={next} onChange={(e) => setNext(e.target.value)} placeholder="At least 8 characters" className="h-9" />
+        </div>
+        <div className="space-y-1.5">
+          <label className="text-[11px] text-muted-foreground">Confirm new password</label>
+          <Input type="password" value={confirm} onChange={(e) => setConfirm(e.target.value)} className="h-9" />
+        </div>
+      </div>
+      <div className="mt-3 flex items-center gap-3">
+        <Button className="h-9" disabled={!canSubmit} onClick={() => change.mutate()}>
+          {change.isPending ? "Updating…" : "Update password"}
+        </Button>
+        {mismatch ? <p className="text-[11px] text-destructive">Passwords do not match.</p> : null}
+        {error ? <p className="text-[11px] text-destructive">{error}</p> : null}
+        {message ? <p className="text-[11px] text-success">{message}</p> : null}
+      </div>
+    </Panel>
   );
 }
 

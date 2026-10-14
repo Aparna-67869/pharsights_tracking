@@ -9,10 +9,10 @@ serialisation hold together after a change.
 from __future__ import annotations
 
 
-def _token(client, email: str, password: str) -> str:
+def _token(client, email: str, password: str, expect: int = 200) -> str:
     response = client.post("/api/v1/auth/token", json={"username": email, "password": password})
-    assert response.status_code == 200, response.text
-    return response.json()["access_token"]
+    assert response.status_code == expect, response.text
+    return response.json().get("access_token", "") if expect == 200 else ""
 
 
 def _admin_headers(client) -> dict[str, str]:
@@ -349,4 +349,102 @@ def test_module_document_content_never_fabricates_a_table(client):
         if body["supported"]:
             assert isinstance(body.get("header"), list)
             assert isinstance(body.get("rows"), list)
+
+
+
+def test_block_additional_accounts_rejects_other_emails(client, monkeypatch):
+    """With the single-account lock-down on, only the allowed address is accepted."""
+    from app.core.config import settings
+
+    monkeypatch.setattr(settings, "restrict_login", False)
+    monkeypatch.setattr(settings, "block_additional_accounts", True)
+    monkeypatch.setattr(settings, "allowed_login_email", "tester@pharma-intel.local")
+
+    # The permitted address may be provisioned...
+    allowed = client.post(
+        "/api/v1/auth/register",
+        headers=_admin_headers(client),
+        json={
+            "full_name": "Tester Again",
+            "email": "tester@pharma-intel.local",
+            "password": "TestPass!234",
+        },
+    )
+    # ...but it already exists here, which is still a conflict, not an authorization error.
+    assert allowed.status_code in {201, 409}, allowed.text
+
+    # Any other address is refused outright.
+    blocked = client.post(
+        "/api/v1/auth/register",
+        headers=_admin_headers(client),
+        json={"full_name": "Someone Else", "email": "intruder@example.com", "password": "IntruderPass!234"},
+    )
+    assert blocked.status_code in {401, 403}, blocked.text
+
+
+def test_block_additional_accounts_protects_the_single_account(client, monkeypatch):
+    """The one permitted account cannot be deactivated when the lock-down is on."""
+    from app.core.config import settings
+
+    monkeypatch.setattr(settings, "block_additional_accounts", True)
+    monkeypatch.setattr(settings, "allowed_login_email", "viewer@pharma-intel.local")
+
+    users = client.get("/api/v1/auth/users", headers=_admin_headers(client)).json()
+    viewer = next(u for u in users if u["email"] == "viewer@pharma-intel.local")
+    response = client.patch(
+        f"/api/v1/auth/users/{viewer['id']}",
+        headers=_admin_headers(client),
+        json={"is_active": False},
+    )
+    assert response.status_code in {401, 403}, response.text
+
+
+def test_profile_exposes_account_capability(client, monkeypatch):
+    """/auth/me tells the UI whether further accounts may be created."""
+    from app.core.config import settings
+
+    token = _token(client, "tester@pharma-intel.local", "TestPass!234")
+    headers = {"Authorization": f"Bearer {token}"}
+
+    monkeypatch.setattr(settings, "block_additional_accounts", True)
+    monkeypatch.setattr(settings, "allowed_login_email", "pharsightspatent@gmail.com")
+    locked = client.get("/api/v1/auth/me", headers=headers).json()
+    assert locked["can_create_accounts"] is False
+    assert locked["allowed_login_email"] == "pharsightspatent@gmail.com"
+
+    monkeypatch.setattr(settings, "block_additional_accounts", False)
+    open_profile = client.get("/api/v1/auth/me", headers=headers).json()
+    assert open_profile["can_create_accounts"] is True
+    assert open_profile["allowed_login_email"] is None
+
+
+def test_change_password_rotates_the_credential(client):
+    """The signed-in account can rotate its password after confirming the old one."""
+    token = _token(client, "tester@pharma-intel.local", "TestPass!234")
+    headers = {"Authorization": f"Bearer {token}"}
+
+    wrong = client.post(
+        "/api/v1/auth/password",
+        headers=headers,
+        json={"current_password": "not-the-password", "new_password": "RotatedPass!234"},
+    )
+    assert wrong.status_code == 401, wrong.text
+
+    ok = client.post(
+        "/api/v1/auth/password",
+        headers=headers,
+        json={"current_password": "TestPass!234", "new_password": "RotatedPass!234"},
+    )
+    assert ok.status_code == 200, ok.text
+
+    # The old password no longer works; the new one does.
+    _token(client, "tester@pharma-intel.local", "TestPass!234", expect=401)
+    _token(client, "tester@pharma-intel.local", "RotatedPass!234")
+
+    # Restore the seeded credential so the fixture teardown and other tests agree.
+    client.post(
+        "/api/v1/auth/password",
+        headers=headers,
+        json={"current_password": "RotatedPass!234", "new_password": "TestPass!234"},
+    )
 
