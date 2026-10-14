@@ -9,6 +9,7 @@ import { cn } from "@/lib/utils";
 import { useRealtime } from "@/components/providers/realtime-provider";
 import { useAuth } from "@/components/providers/auth-provider";
 import { NAV, NAV_GROUPS } from "@/components/layout/nav-config";
+import { BrandLogo, BrandWordmark } from "@/components/common/brand";
 
 /**
  * Collapsible command-center navigation. The collapsed state shows icon-only
@@ -45,12 +46,10 @@ export function Sidebar({
       >
         <div className={cn("flex h-14 items-center border-b border-white/5", collapsed ? "justify-center px-2" : "justify-between px-4")}>
           <Link href="/" className="flex items-center gap-2.5" onClick={onClose}>
-            <span className="grid h-8 w-8 shrink-0 place-items-center rounded-lg bg-gradient-to-br from-primary to-accent text-primary-foreground shadow-lg shadow-primary/25">
-              <span className="text-[15px] font-black leading-none">P</span>
-            </span>
+            <BrandLogo className="h-8 w-8" />
             {!collapsed ? (
               <span className="flex flex-col leading-tight">
-                <span className="text-sm font-semibold tracking-tight">Pharsights Intel</span>
+                <BrandWordmark className="text-sm font-semibold tracking-tight" />
                 <span className="text-[10px] uppercase tracking-[0.18em] text-sidebar-foreground/50">
                   Command Center
                 </span>

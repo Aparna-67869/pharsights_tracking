@@ -8,11 +8,11 @@ import {
   GitCompareArrows,
   Loader2,
   Lock,
-  ShieldCheck,
   UserPlus,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { BrandLogo, BrandWordmark } from "@/components/common/brand";
 import { api, ApiError } from "@/lib/api";
 import { useAuth } from "@/components/providers/auth-provider";
 
@@ -99,11 +99,11 @@ export default function LoginPage() {
       <div className="relative z-10 grid min-h-screen lg:grid-cols-2">
         <div className="hidden flex-col justify-between p-12 lg:flex">
           <div className="flex items-center gap-3">
-            <span className="grid h-11 w-11 place-items-center rounded-xl bg-primary/15 text-primary ring-1 ring-primary/25">
-              <ShieldCheck className="h-6 w-6" />
-            </span>
+            <BrandLogo className="h-11 w-11" />
             <div>
-              <p className="text-lg font-semibold">Pharsights Intel Command Center</p>
+              <p className="text-lg font-semibold">
+                <BrandWordmark suffix={null} /> <span className="text-muted-foreground">Command Center</span>
+              </p>
               <p className="text-xs text-muted-foreground">Regulatory Intelligence Command Center</p>
             </div>
           </div>
@@ -141,8 +141,10 @@ export default function LoginPage() {
         <div className="flex items-center justify-center p-6">
           <div className="glass-strong w-full max-w-sm rounded-2xl p-7">
             <div className="mb-6 flex items-center gap-2 lg:hidden">
-              <ShieldCheck className="h-5 w-5 text-primary" />
-              <span className="font-semibold">Pharsights Intel Command Center</span>
+              <BrandLogo className="h-6 w-6" />
+              <span className="font-semibold">
+                <BrandWordmark suffix={null} /> <span className="text-muted-foreground">Command Center</span>
+              </span>
             </div>
 
             <div className="mb-5 grid grid-cols-2 gap-1 rounded-lg bg-muted/40 p-1">

@@ -51,8 +51,8 @@ function openWithToken(url: string, download = false) {
 
 /**
  * Provenance bar shown under every module header: which official file the page
- * is built from, exactly when the regulator published it, when we downloaded
- * and last processed it, plus one-click access to the original document.
+ * is built from, exactly when the regulator published it, when the collector
+ * fetched and last processed it, plus one-click access to the original document.
  *
  * Download and last-processed stamps are absolute, so their relative form is
  * recomputed on a clock tick rather than being frozen at first render. The
@@ -113,7 +113,7 @@ export function SourceProvenance({ module }: { module: string }) {
         ? (data.publication_label ?? fmtDate(data.publication_date))
         : "—",
     },
-    { label: "Downloaded", value: liveStamp(data.fetched_at) },
+    { label: "Auto-fetched", value: liveStamp(data.fetched_at) },
     { label: "Last processed", value: liveStamp(data.last_processed_at) },
     { label: "Version", value: `v${data.version ?? 1}` },
     {
